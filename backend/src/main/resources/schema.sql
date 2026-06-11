@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS conversation (
     title VARCHAR(200),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_conv_session ON conversation(session_id);
 
 CREATE TABLE IF NOT EXISTS message (
     id VARCHAR(36) PRIMARY KEY,
