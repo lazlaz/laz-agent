@@ -6,6 +6,11 @@ import com.shopai.agent.memory.H2MemoryManager;
 import com.shopai.agent.memory.MemoryManager;
 import com.shopai.agent.prompt.MustachePromptEngine;
 import com.shopai.agent.prompt.PromptEngine;
+import com.shopai.agent.tool.CalculatorTool;
+import com.shopai.agent.tool.DefaultToolRegistry;
+import com.shopai.agent.tool.OrderQueryTool;
+import com.shopai.agent.tool.ProductSearchTool;
+import com.shopai.agent.tool.ToolRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,5 +51,14 @@ public class AgentConfig {
     @Bean
     public MemoryManager memoryManager(JdbcTemplate jdbc) {
         return new H2MemoryManager(jdbc);
+    }
+
+    @Bean
+    public ToolRegistry toolRegistry(OrderQueryTool orderQuery, ProductSearchTool productSearch, CalculatorTool calculator) {
+        DefaultToolRegistry registry = new DefaultToolRegistry();
+        registry.register(orderQuery.definition());
+        registry.register(productSearch.definition());
+        registry.register(calculator.definition());
+        return registry;
     }
 }
