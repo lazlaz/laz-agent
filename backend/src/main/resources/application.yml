@@ -13,7 +13,8 @@ spring:
       path: /h2-console
   sql:
     init:
-      mode: never
+      mode: always
+      schema-locations: classpath:schema.sql
 
 shopai:
   llm:

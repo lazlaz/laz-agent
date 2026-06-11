@@ -1,0 +1,12 @@
+[
+  {"id":"p001","name":"iPhone 15 Pro Max","category":"phone","price":9999.00,"stock":120,"specs":"{\"screen\":\"6.7 inch\",\"chip\":\"A17 Pro\",\"camera\":\"48MP\"}","description":"Apple flagship smartphone with powerful A17 Pro chip and pro camera system"},
+  {"id":"p002","name":"iPhone 15","category":"phone","price":5999.00,"stock":200,"specs":"{\"screen\":\"6.1 inch\",\"chip\":\"A16\",\"camera\":\"48MP\"}","description":"Apple iPhone 15 with Dynamic Island and 48MP main camera"},
+  {"id":"p003","name":"Samsung Galaxy S24 Ultra","category":"phone","price":8999.00,"stock":85,"specs":"{\"screen\":\"6.8 inch\",\"chip\":\"Snapdragon 8 Gen 3\",\"camera\":\"200MP\"}","description":"Samsung flagship with built-in S Pen and 200MP camera"},
+  {"id":"p004","name":"Xiaomi 14 Pro","category":"phone","price":4999.00,"stock":150,"specs":"{\"screen\":\"6.73 inch\",\"chip\":\"Snapdragon 8 Gen 3\",\"camera\":\"50MP Leica\"}","description":"Xiaomi flagship with Leica optics and fast charging"},
+  {"id":"p005","name":"MacBook Pro 14","category":"computer","price":14999.00,"stock":40,"specs":"{\"screen\":\"14.2 inch\",\"chip\":\"M3 Pro\",\"ram\":\"18GB\"}","description":"Apple MacBook Pro with M3 Pro chip, ideal for developers"},
+  {"id":"p006","name":"MacBook Air 15","category":"computer","price":10499.00,"stock":60,"specs":"{\"screen\":\"15.3 inch\",\"chip\":\"M3\",\"ram\":\"8GB\"}","description":"Thin and light MacBook Air with M3 chip"},
+  {"id":"p007","name":"ThinkPad X1 Carbon","category":"computer","price":10999.00,"stock":30,"specs":"{\"screen\":\"14 inch\",\"chip\":\"Intel i7-1365U\",\"ram\":\"16GB\"}","description":"Lenovo business laptop, lightweight and durable"},
+  {"id":"p008","name":"AirPods Pro 2","category":"accessory","price":1899.00,"stock":300,"specs":"{\"type\":\"TWS\",\"anc\":true,\"battery\":\"6h\"}","description":"Apple noise-cancelling earbuds with USB-C charging"},
+  {"id":"p009","name":"Sony WH-1000XM5","category":"accessory","price":2499.00,"stock":90,"specs":"{\"type\":\"over-ear\",\"anc\":true,\"battery\":\"30h\"}","description":"Sony flagship noise-cancelling headphones"},
+  {"id":"p010","name":"iPad Air M2","category":"computer","price":4799.00,"stock":70,"specs":"{\"screen\":\"11 inch\",\"chip\":\"M2\",\"storage\":\"128GB\"}","description":"iPad Air with M2 chip, great for creativity and study"}
+]
