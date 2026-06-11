@@ -2,11 +2,14 @@ package com.shopai.agent.config;
 
 import com.shopai.agent.llm.LangChain4jAdapter;
 import com.shopai.agent.llm.LlmAdapter;
+import com.shopai.agent.memory.H2MemoryManager;
+import com.shopai.agent.memory.MemoryManager;
 import com.shopai.agent.prompt.MustachePromptEngine;
 import com.shopai.agent.prompt.PromptEngine;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.Duration;
 
@@ -38,5 +41,10 @@ public class AgentConfig {
     @Bean
     public PromptEngine promptEngine() {
         return new MustachePromptEngine();
+    }
+
+    @Bean
+    public MemoryManager memoryManager(JdbcTemplate jdbc) {
+        return new H2MemoryManager(jdbc);
     }
 }
