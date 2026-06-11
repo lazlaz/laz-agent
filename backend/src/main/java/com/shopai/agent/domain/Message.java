@@ -11,6 +11,10 @@ public record Message(
     Map<String, Object> metadata,
     Instant timestamp
 ) {
+    public Message {
+        metadata = Map.copyOf(metadata);
+    }
+
     public static Message of(Role role, String content) {
         return new Message(
             UUID.randomUUID().toString(),
