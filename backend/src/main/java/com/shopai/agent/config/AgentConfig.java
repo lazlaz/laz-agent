@@ -2,6 +2,8 @@ package com.shopai.agent.config;
 
 import com.shopai.agent.llm.LangChain4jAdapter;
 import com.shopai.agent.llm.LlmAdapter;
+import com.shopai.agent.prompt.MustachePromptEngine;
+import com.shopai.agent.prompt.PromptEngine;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,5 +33,10 @@ public class AgentConfig {
             baseUrl,
             Duration.parse("PT" + timeout.replace("s", "S").replace("m", "M"))
         );
+    }
+
+    @Bean
+    public PromptEngine promptEngine() {
+        return new MustachePromptEngine();
     }
 }
