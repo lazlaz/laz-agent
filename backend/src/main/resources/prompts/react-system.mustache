@@ -17,10 +17,16 @@ User: {{userInput}}
 Respond strictly using this format:
 
 THOUGHT: [your reasoning about what to do next]
-ACTION: tool_name({"param": "value"})   // or ACTION: FINAL if ready to answer
+ACTION: tool_name({"param": "value"})
+
+// Or, for final answer:
+THOUGHT: [brief reasoning]
+ACTION: FINAL
+[Your complete, helpful answer in Chinese here — on the line(s) after ACTION: FINAL]
 
 Rules:
-- Call only one tool per ACTION
 - Use FINAL only when you have all information needed to fully answer the user
-- When using FINAL, provide a complete, helpful answer in Chinese
+- When using FINAL, provide the complete answer starting on the next line after "ACTION: FINAL"
+- Call only one tool per ACTION
+- Never put extra text on the same line as FINAL — keep the answer separate
 - Break down complex requests into steps if needed

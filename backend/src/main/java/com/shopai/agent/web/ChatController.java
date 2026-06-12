@@ -34,8 +34,18 @@ public class ChatController {
         String messageId = UUID.randomUUID().toString();
 
         executor.submit(() -> {
-            AgentResponse response = engine.execute(new AgentRequest(sessionId, message));
-            responseStore.put(messageId, response);
+            try {
+                AgentResponse response = engine.execute(new AgentRequest(sessionId, message));
+                responseStore.put(messageId, response);
+            } catch (Exception e) {
+                AgentResponse errorResponse = new AgentResponse(
+                    "抱歉，处理您的请求时出错：" + e.getMessage(),
+                    java.util.List.of(),
+                    com.shopai.agent.domain.TokenUsage.ZERO,
+                    0
+                );
+                responseStore.put(messageId, errorResponse);
+            }
         });
 
         return Map.of(

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.zhaopin.com)",
+      "Bash(Start-Sleep -Seconds 3)",
+      "Bash(Get-ChildItem -Path \"D:\\\\learn\\\\ai\\\\claudeDemo\\\\my-agent-one\\\\.superpowers\\\\brainstorm\" -Recurse -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(Get-ChildItem *)",
+      "Bash(mvn compile *)",
+      "Bash(Get-Content *)"
+    ]
+  }
+}

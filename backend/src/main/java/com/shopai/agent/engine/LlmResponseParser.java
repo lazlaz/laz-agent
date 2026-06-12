@@ -14,7 +14,7 @@ public class LlmResponseParser {
         String thought = extractSection(content, "THOUGHT:");
         String action = extractSection(content, "ACTION:");
 
-        if (action != null && !action.trim().equalsIgnoreCase("FINAL")) {
+        if (action != null && !action.trim().toUpperCase().startsWith("FINAL")) {
             ToolCall toolCall = parseToolCall(action.trim());
             return new LlmResponse(content, DecisionType.TOOL_CALL, toolCall, estimateTokens(content));
         } else if (action != null) {

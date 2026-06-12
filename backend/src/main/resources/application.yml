@@ -18,10 +18,10 @@ spring:
 
 shopai:
   llm:
-    provider: openai
-    api-key: ${OPENAI_API_KEY:sk-placeholder}
-    model: gpt-4o-mini
-    base-url: https://api.openai.com/v1
+    provider: deepseek
+    api-key: ${DEEPSEEK_API_KEY}
+    model: deepseek-chat
+    base-url: https://api.deepseek.com/v1
     timeout: 30s
   agent:
     max-iterations: 10
