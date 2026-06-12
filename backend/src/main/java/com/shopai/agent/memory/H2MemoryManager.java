@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shopai.agent.domain.Message;
 import com.shopai.agent.domain.Role;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Component;
 
 import java.sql.ResultSet;
 import java.sql.Timestamp;
@@ -15,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@Component
 public class H2MemoryManager implements MemoryManager {
 
     private final JdbcTemplate jdbc;
