@@ -17,3 +17,6 @@ Thumbs.db
 
 # Superpowers
 .superpowers/
+.understand-anything/
+.claude/
+data/
