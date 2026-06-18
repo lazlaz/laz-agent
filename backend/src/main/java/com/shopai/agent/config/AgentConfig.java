@@ -6,11 +6,14 @@ import com.shopai.agent.memory.H2MemoryManager;
 import com.shopai.agent.tool.CalculatorTool;
 import com.shopai.agent.tool.OrderQueryTool;
 import com.shopai.agent.tool.ProductSearchTool;
+import com.shopai.agent.tracing.OtelChatModelListener;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
+import io.opentelemetry.api.trace.Tracer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +22,7 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.time.Duration;
+import java.util.List;
 
 @Configuration
 public class AgentConfig {
@@ -38,13 +42,23 @@ public class AgentConfig {
     @Value("${shopai.agent.max-history-messages:20}")
     private int maxHistoryMessages;
 
+    // ── OpenTelemetry tracing ────────────────────────────────────────
+
     @Bean
-    public StreamingChatModel streamingChatModel() {
+    public OtelChatModelListener otelChatModelListener(Tracer tracer) {
+        return new OtelChatModelListener(tracer);
+    }
+
+    // ── Chat model ───────────────────────────────────────────────────
+
+    @Bean
+    public StreamingChatModel streamingChatModel(List<ChatModelListener> listeners) {
         return LangChain4jAdapter.createStreamingModel(
             apiKey,
             model,
             baseUrl,
-            Duration.parse("PT" + timeout.replace("s", "S").replace("m", "M"))
+            Duration.parse("PT" + timeout.replace("s", "S").replace("m", "M")),
+            listeners
         );
     }
 

@@ -20,3 +20,6 @@ Thumbs.db
 .understand-anything/
 .claude/
 data/
+
+# Sensitive config (local keys)
+**/application-local.yml

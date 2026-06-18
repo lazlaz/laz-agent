@@ -2,6 +2,8 @@ server:
   port: 8080
 
 spring:
+  profiles:
+    active: local
   datasource:
     url: jdbc:h2:file:./data/shopai;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
     driver-class-name: org.h2.Driver
@@ -22,7 +24,17 @@ shopai:
   agent:
     max-iterations: 10
     max-history-messages: 20
+  langfuse:
+    host: https://jp.cloud.langfuse.com
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
 
 logging:
   level:
     dev.langchain4j: DEBUG
+    com.shopai.agent.tracing: DEBUG
+    io.opentelemetry: DEBUG
+    io.opentelemetry.exporter: DEBUG
