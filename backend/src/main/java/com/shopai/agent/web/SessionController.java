@@ -1,6 +1,6 @@
 package com.shopai.agent.web;
 
-import com.shopai.agent.memory.MemoryManager;
+import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,11 +13,11 @@ import java.util.UUID;
 public class SessionController {
 
     private final JdbcTemplate jdbc;
-    private final MemoryManager memory;
+    private final ChatMemoryStore memoryStore;
 
-    public SessionController(JdbcTemplate jdbc, MemoryManager memory) {
+    public SessionController(JdbcTemplate jdbc, ChatMemoryStore memoryStore) {
         this.jdbc = jdbc;
-        this.memory = memory;
+        this.memoryStore = memoryStore;
     }
 
     @GetMapping
@@ -30,7 +30,7 @@ public class SessionController {
     @GetMapping("/{sessionId}/messages")
     public List<Map<String, Object>> getMessages(@PathVariable String sessionId) {
         return jdbc.queryForList(
-            "SELECT id, role, content, metadata, created_at FROM message WHERE session_id = ? ORDER BY created_at ASC",
+            "SELECT id, msg_type, content, tool_name, created_at FROM agent_message WHERE session_id = ? ORDER BY created_at ASC",
             sessionId
         );
     }
@@ -47,7 +47,7 @@ public class SessionController {
 
     @DeleteMapping("/{sessionId}")
     public Map<String, String> deleteSession(@PathVariable String sessionId) {
-        memory.clear(sessionId);
+        memoryStore.deleteMessages(sessionId);
         jdbc.update("DELETE FROM conversation WHERE session_id = ?", sessionId);
         return Map.of("status", "deleted");
     }

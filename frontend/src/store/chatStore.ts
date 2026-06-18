@@ -20,7 +20,7 @@ interface ChatState {
   // Messages
   messages: ChatMessage[];
   addMessage: (msg: ChatMessage) => void;
-  updateLastAssistant: (content: string) => void;
+  updateLastAssistant: (content: string | ((prev: string) => string)) => void;
   clearMessages: () => void;
 
   // Streaming state
@@ -44,7 +44,10 @@ export const useChatStore = create<ChatState>((set) => ({
       const msgs = [...s.messages];
       const last = msgs[msgs.length - 1];
       if (last && last.role === 'assistant') {
-        msgs[msgs.length - 1] = { ...last, content };
+        const newContent = typeof content === 'function'
+          ? (content as (prev: string) => string)(last.content)
+          : content;
+        msgs[msgs.length - 1] = { ...last, content: newContent };
       }
       return { messages: msgs };
     }),

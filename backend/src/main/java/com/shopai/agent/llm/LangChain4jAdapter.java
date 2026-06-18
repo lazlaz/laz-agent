@@ -1,43 +1,29 @@
 package com.shopai.agent.llm;
 
-import com.shopai.agent.domain.*;
-import com.shopai.agent.engine.LlmResponseParser;
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.http.client.jdk.JdkHttpClient;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 
 import java.time.Duration;
 
-public class LangChain4jAdapter implements LlmAdapter {
+/**
+ * Factory for LangChain4j streaming chat models.
+ * Uses OpenAiStreamingChatModel which is compatible with DeepSeek's OpenAI-compatible API.
+ */
+public class LangChain4jAdapter {
 
-    private final ChatLanguageModel model;
-    private final LlmResponseParser parser = new LlmResponseParser();
+    private LangChain4jAdapter() {}
 
-    public LangChain4jAdapter(String apiKey, String modelName, String baseUrl, Duration timeout) {
-        this.model = OpenAiChatModel.builder()
+    public static StreamingChatModel createStreamingModel(
+        String apiKey, String modelName, String baseUrl, Duration timeout) {
+        return OpenAiStreamingChatModel.builder()
             .apiKey(apiKey)
             .modelName(modelName)
             .baseUrl(baseUrl)
             .timeout(timeout)
+            .httpClientBuilder(JdkHttpClient.builder())
+            .logRequests(true)
+            .logResponses(true)
             .build();
-    }
-
-    @Override
-    public LlmResponse chat(ChatRequest request) {
-        String prompt = buildFullPrompt(request);
-        String rawResponse = model.generate(prompt);
-        return parser.parse(rawResponse);
-    }
-
-    private String buildFullPrompt(ChatRequest request) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(request.systemPrompt()).append("\n\n");
-
-        if (request.messages() != null) {
-            for (Message msg : request.messages()) {
-                sb.append(msg.role()).append(": ").append(msg.content()).append("\n");
-            }
-        }
-
-        return sb.toString();
     }
 }

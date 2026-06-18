@@ -11,10 +11,6 @@ spring:
     console:
       enabled: true
       path: /h2-console
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:schema.sql
 
 shopai:
   llm:
@@ -26,3 +22,7 @@ shopai:
   agent:
     max-iterations: 10
     max-history-messages: 20
+
+logging:
+  level:
+    dev.langchain4j: DEBUG

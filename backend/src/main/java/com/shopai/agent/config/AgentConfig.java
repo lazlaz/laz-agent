@@ -1,16 +1,16 @@
 package com.shopai.agent.config;
 
+import com.shopai.agent.engine.ShopAiAgent;
 import com.shopai.agent.llm.LangChain4jAdapter;
-import com.shopai.agent.llm.LlmAdapter;
 import com.shopai.agent.memory.H2MemoryManager;
-import com.shopai.agent.memory.MemoryManager;
-import com.shopai.agent.prompt.MustachePromptEngine;
-import com.shopai.agent.prompt.PromptEngine;
 import com.shopai.agent.tool.CalculatorTool;
-import com.shopai.agent.tool.DefaultToolRegistry;
 import com.shopai.agent.tool.OrderQueryTool;
 import com.shopai.agent.tool.ProductSearchTool;
-import com.shopai.agent.tool.ToolRegistry;
+import dev.langchain4j.memory.chat.ChatMemoryProvider;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.service.AiServices;
+import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,9 +35,12 @@ public class AgentConfig {
     @Value("${shopai.llm.timeout}")
     private String timeout;
 
+    @Value("${shopai.agent.max-history-messages:20}")
+    private int maxHistoryMessages;
+
     @Bean
-    public LlmAdapter llmAdapter() {
-        return new LangChain4jAdapter(
+    public StreamingChatModel streamingChatModel() {
+        return LangChain4jAdapter.createStreamingModel(
             apiKey,
             model,
             baseUrl,
@@ -46,22 +49,30 @@ public class AgentConfig {
     }
 
     @Bean
-    public PromptEngine promptEngine() {
-        return new MustachePromptEngine();
-    }
-
-    @Bean
-    public MemoryManager memoryManager(JdbcTemplate jdbc) {
+    public ChatMemoryStore chatMemoryStore(JdbcTemplate jdbc) {
         return new H2MemoryManager(jdbc);
     }
 
     @Bean
-    public ToolRegistry toolRegistry(OrderQueryTool orderQuery, ProductSearchTool productSearch, CalculatorTool calculator) {
-        DefaultToolRegistry registry = new DefaultToolRegistry();
-        registry.register(orderQuery.definition());
-        registry.register(productSearch.definition());
-        registry.register(calculator.definition());
-        return registry;
+    public ChatMemoryProvider chatMemoryProvider(ChatMemoryStore store) {
+        return memoryId -> MessageWindowChatMemory.builder()
+            .chatMemoryStore(store)
+            .maxMessages(maxHistoryMessages)
+            .build();
+    }
+
+    @Bean
+    public ShopAiAgent shopAiAgent(
+        StreamingChatModel streamingModel,
+        ChatMemoryProvider memoryProvider,
+        ProductSearchTool productSearch,
+        OrderQueryTool orderQuery,
+        CalculatorTool calculator) {
+        return AiServices.builder(ShopAiAgent.class)
+            .streamingChatModel(streamingModel)
+            .chatMemoryProvider(memoryProvider)
+            .tools(productSearch, orderQuery, calculator)
+            .build();
     }
 
     @Bean

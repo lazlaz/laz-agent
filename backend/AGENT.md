@@ -1,0 +1,1 @@
+test/java/com/shopai/agent/verify 下面放的的agent开发中一些错误验证，仅供错误验证学习，不要乱改

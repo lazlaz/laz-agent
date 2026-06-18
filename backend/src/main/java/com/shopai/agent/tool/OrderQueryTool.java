@@ -1,9 +1,7 @@
 package com.shopai.agent.tool;
 
-import com.shopai.agent.domain.ParamSchema;
-import com.shopai.agent.domain.ToolDefinition;
-import com.shopai.agent.domain.ToolParameters;
-import com.shopai.agent.domain.ToolResult;
+import dev.langchain4j.agent.tool.P;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -19,25 +17,10 @@ public class OrderQueryTool {
         this.jdbc = jdbc;
     }
 
-    public ToolDefinition definition() {
-        return new ToolDefinition(
-            "OrderQueryTool",
-            "查询用户的订单状态和物流信息。参数: orderNo (订单号) 或 customerName (客户姓名)",
-            new ToolParameters(
-                "object",
-                Map.of(
-                    "orderNo", new ParamSchema("string", "订单号，如 20240611001"),
-                    "customerName", new ParamSchema("string", "客户姓名")
-                ),
-                List.of()
-            ),
-            this::execute
-        );
-    }
-
-    private ToolResult execute(Map<String, Object> args) {
-        String orderNo = (String) args.get("orderNo");
-        String customerName = (String) args.get("customerName");
+    @Tool("查询用户的订单状态和物流信息。通过订单号或客户姓名查询，至少提供一个参数")
+    public String queryOrders(
+        @P("订单号，如 20240611001，可选") String orderNo,
+        @P("客户姓名，可选") String customerName) {
 
         List<Map<String, Object>> orders;
         if (orderNo != null && !orderNo.isBlank()) {
@@ -51,11 +34,11 @@ public class OrderQueryTool {
                 customerName
             );
         } else {
-            return ToolResult.fail("请提供订单号或客户姓名");
+            return "请提供订单号或客户姓名";
         }
 
         if (orders.isEmpty()) {
-            return ToolResult.ok("未找到相关订单");
+            return "未找到相关订单";
         }
 
         StringBuilder sb = new StringBuilder();
@@ -66,6 +49,6 @@ public class OrderQueryTool {
                 o.get("TOTAL_AMOUNT"), o.get("LOGISTICS"), o.get("CREATED_AT")
             ));
         }
-        return ToolResult.ok(sb.toString().trim());
+        return sb.toString().trim();
     }
 }

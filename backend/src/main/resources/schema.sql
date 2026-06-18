@@ -16,6 +16,19 @@ CREATE TABLE IF NOT EXISTS message (
 );
 CREATE INDEX IF NOT EXISTS idx_msg_session ON message(session_id, created_at);
 
+-- LangChain4j ChatMemoryStore table (replaces old message table for agent conversations)
+CREATE TABLE IF NOT EXISTS agent_message (
+    id VARCHAR(36) PRIMARY KEY,
+    session_id VARCHAR(64) NOT NULL,
+    msg_type VARCHAR(20) NOT NULL,
+    content TEXT,
+    tool_requests_json TEXT,
+    tool_name VARCHAR(100),
+    tool_request_id VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_amsg_session ON agent_message(session_id, created_at);
+
 CREATE TABLE IF NOT EXISTS product (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(200) NOT NULL,

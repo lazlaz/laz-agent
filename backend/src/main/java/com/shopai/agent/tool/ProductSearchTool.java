@@ -1,9 +1,7 @@
 package com.shopai.agent.tool;
 
-import com.shopai.agent.domain.ParamSchema;
-import com.shopai.agent.domain.ToolDefinition;
-import com.shopai.agent.domain.ToolParameters;
-import com.shopai.agent.domain.ToolResult;
+import dev.langchain4j.agent.tool.P;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -20,29 +18,12 @@ public class ProductSearchTool {
         this.jdbc = jdbc;
     }
 
-    public ToolDefinition definition() {
-        return new ToolDefinition(
-            "ProductSearchTool",
-            "搜索产品，支持关键词、分类、价格范围筛选。参数: keyword (搜索关键词), category (分类: phone/computer/accessory), minPrice (最低价), maxPrice (最高价)",
-            new ToolParameters(
-                "object",
-                Map.of(
-                    "keyword", new ParamSchema("string", "产品名关键词"),
-                    "category", new ParamSchema("string", "分类: phone, computer, accessory"),
-                    "minPrice", new ParamSchema("number", "最低价格"),
-                    "maxPrice", new ParamSchema("number", "最高价格")
-                ),
-                List.of()
-            ),
-            this::execute
-        );
-    }
-
-    private ToolResult execute(Map<String, Object> args) {
-        String keyword = (String) args.get("keyword");
-        String category = (String) args.get("category");
-        Object minPrice = args.get("minPrice");
-        Object maxPrice = args.get("maxPrice");
+    @Tool("搜索电子产品，支持关键词、分类、价格范围筛选。参数均为可选，至少提供一个即可")
+    public String searchProducts(
+        @P("搜索关键词，匹配产品名和描述") String keyword,
+        @P("分类: phone/computer/accessory，可选") String category,
+        @P("最低价格，可选") Double minPrice,
+        @P("最高价格，可选") Double maxPrice) {
 
         StringBuilder sql = new StringBuilder(
             "SELECT name, category, price, stock, description FROM product WHERE 1=1"
@@ -61,11 +42,11 @@ public class ProductSearchTool {
         }
         if (minPrice != null) {
             sql.append(" AND price >= ?");
-            params.add(Double.parseDouble(minPrice.toString()));
+            params.add(minPrice);
         }
         if (maxPrice != null) {
             sql.append(" AND price <= ?");
-            params.add(Double.parseDouble(maxPrice.toString()));
+            params.add(maxPrice);
         }
         sql.append(" ORDER BY price ASC LIMIT 10");
 
@@ -74,7 +55,7 @@ public class ProductSearchTool {
         );
 
         if (results.isEmpty()) {
-            return ToolResult.ok("未找到匹配的产品");
+            return "未找到匹配的产品";
         }
 
         StringBuilder sb = new StringBuilder();
@@ -85,6 +66,6 @@ public class ProductSearchTool {
                 r.get("STOCK"), r.get("DESCRIPTION")
             ));
         }
-        return ToolResult.ok(sb.toString().trim());
+        return sb.toString().trim();
     }
 }

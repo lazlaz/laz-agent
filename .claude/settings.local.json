@@ -10,7 +10,8 @@
       "Bash(git commit *)",
       "Bash(Get-ChildItem *)",
       "Bash(mvn compile *)",
-      "Bash(Get-Content *)"
+      "Bash(Get-Content *)",
+      "Bash(git *)"
     ]
   }
 }
