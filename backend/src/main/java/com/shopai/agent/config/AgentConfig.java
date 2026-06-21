@@ -7,11 +7,14 @@ import com.shopai.agent.tool.CalculatorTool;
 import com.shopai.agent.tool.OrderQueryTool;
 import com.shopai.agent.tool.ProductSearchTool;
 import com.shopai.agent.tracing.OtelChatModelListener;
+import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.service.AiServices;
+import dev.langchain4j.store.embedding.EmbeddingStore;
+import dev.langchain4j.store.embedding.chroma.ChromaEmbeddingStore;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import io.opentelemetry.api.trace.Tracer;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,6 +45,15 @@ public class AgentConfig {
     @Value("${shopai.agent.max-history-messages:20}")
     private int maxHistoryMessages;
 
+    @Value("${shopai.rag.chroma.host}")
+    private String chromaHost;
+
+    @Value("${shopai.rag.chroma.port}")
+    private int chromaPort;
+
+    @Value("${shopai.rag.chroma.collection}")
+    private String chromaCollection;
+
     // ── OpenTelemetry tracing ────────────────────────────────────────
 
     @Bean
@@ -65,6 +77,14 @@ public class AgentConfig {
     @Bean
     public ChatMemoryStore chatMemoryStore(JdbcTemplate jdbc) {
         return new H2MemoryManager(jdbc);
+    }
+
+    @Bean
+    public EmbeddingStore<TextSegment> embeddingStore() {
+        return ChromaEmbeddingStore.builder()
+            .baseUrl("http://" + chromaHost + ":" + chromaPort)
+            .collectionName(chromaCollection)
+            .build();
     }
 
     @Bean
