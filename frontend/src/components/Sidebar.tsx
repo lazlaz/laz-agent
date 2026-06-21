@@ -3,7 +3,11 @@ import { useChatStore, type ChatMessage } from '../store/chatStore';
 import { fetchSessions, fetchMessages, createSession, deleteSession } from '../api/chat';
 import type { Conversation } from '../types';
 
-export default function Sidebar() {
+interface Props {
+  onNavigateKnowledge?: () => void;
+}
+
+export default function Sidebar({ onNavigateKnowledge }: Props) {
   const { sessions, currentSessionId, setSessions, setCurrentSession, clearMessages, addMessage } = useChatStore();
 
   useEffect(() => {
@@ -100,6 +104,14 @@ export default function Sidebar() {
           </div>
         ))}
       </div>
+      {onNavigateKnowledge && (
+        <button
+          onClick={onNavigateKnowledge}
+          className="w-full mt-auto px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded transition-colors"
+        >
+          📚 知识库管理
+        </button>
+      )}
     </div>
   );
 }
