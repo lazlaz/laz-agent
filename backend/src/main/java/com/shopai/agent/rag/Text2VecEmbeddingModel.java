@@ -43,9 +43,20 @@ public class Text2VecEmbeddingModel implements EmbeddingModel, DisposableBean {
         sidecarUrl = "http://127.0.0.1:" + sidecarPort;
         try {
             log.info("Starting embedding sidecar: model={}, port={}", modelName, sidecarPort);
+            // Resolve sidecar script relative to working directory;
+            // when run via 'cd backend && mvn spring-boot:run' the script is in cwd;
+            // when run from project root the script lives under backend/.
+            java.io.File scriptDir = new java.io.File(System.getProperty("user.dir"));
+            if (!new java.io.File(scriptDir, "embedding_sidecar.py").exists()) {
+                java.io.File backendDir = new java.io.File(scriptDir, "backend");
+                if (new java.io.File(backendDir, "embedding_sidecar.py").exists()) {
+                    scriptDir = backendDir;
+                }
+            }
             ProcessBuilder pb = new ProcessBuilder(
                 "python", "embedding_sidecar.py"
             );
+            pb.directory(scriptDir);
             pb.environment().put("MODEL_PATH", modelPath);
             pb.environment().put("MODEL_NAME", modelName);
             pb.environment().put("PORT", String.valueOf(sidecarPort));
