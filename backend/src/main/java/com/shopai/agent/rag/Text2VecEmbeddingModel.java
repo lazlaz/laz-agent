@@ -63,22 +63,35 @@ public class Text2VecEmbeddingModel implements EmbeddingModel, DisposableBean {
             pb.redirectErrorStream(true);
             pythonProcess = pb.start();
 
-            // Wait for health endpoint to be ready
-            long deadline = System.currentTimeMillis() + startupTimeoutSeconds * 1000L;
-            while (System.currentTimeMillis() < deadline) {
-                try {
-                    Map<?, ?> health = restTemplate.getForObject(sidecarUrl + "/health", Map.class);
-                    if (health != null && "ok".equals(health.get("status"))) {
-                        log.info("Embedding sidecar ready: {}", health);
-                        return;
+            // Wait for health endpoint to be ready; guard with try-finally so the
+            // sidecar process is killed on any failure (timeout, InterruptedException, etc.)
+            boolean ready = false;
+            try {
+                long deadline = System.currentTimeMillis() + startupTimeoutSeconds * 1000L;
+                while (System.currentTimeMillis() < deadline) {
+                    try {
+                        Map<?, ?> health = restTemplate.getForObject(sidecarUrl + "/health", Map.class);
+                        if (health != null && "ok".equals(health.get("status"))) {
+                            log.info("Embedding sidecar ready: {}", health);
+                            ready = true;
+                            return;
+                        }
+                    } catch (RestClientException ignored) {
+                        // sidecar not ready yet
                     }
-                } catch (RestClientException ignored) {
-                    // sidecar not ready yet
+                    Thread.sleep(1000);
                 }
-                Thread.sleep(1000);
+                throw new IllegalStateException("Embedding sidecar failed to start within " + startupTimeoutSeconds + "s");
+            } finally {
+                if (!ready && pythonProcess != null && pythonProcess.isAlive()) {
+                    pythonProcess.destroyForcibly();
+                }
             }
-            throw new IllegalStateException("Embedding sidecar failed to start within " + startupTimeoutSeconds + "s");
         } catch (Exception e) {
+            // Safety net: ensure the sidecar process is cleaned up on any exception
+            if (pythonProcess != null && pythonProcess.isAlive()) {
+                pythonProcess.destroyForcibly();
+            }
             log.error("Failed to start embedding sidecar", e);
             throw new RuntimeException("Failed to start embedding sidecar", e);
         }
