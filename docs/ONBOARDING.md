@@ -12,7 +12,7 @@
 | **项目名** | shopai-agent |
 | **描述** | 基于 Java + Spring Boot + LangChain4j 构建的轻量级 AI Agent 平台，以电商智能客服为业务场景，实现 LLM 调用、工具注册与调度、ReAct 推理循环等核心 Agent 能力，前端采用 React + TypeScript + Tailwind CSS 提供交互界面 |
 | **语言** | Java (主), TypeScript, Mustache, SQL, YAML, JSON, CSS, HTML, JavaScript, Markdown |
-| **框架** | Spring Boot 3.3.0, LangChain4j 0.31.0, React 18, Vite 5.3, Tailwind CSS 3.4, Zustand 4.5, Mustache 0.9.11 |
+| **框架** | Spring Boot 4.0.6, LangChain4j 1.16.2, React 18, Vite 5.3, Tailwind CSS 3.4, Zustand 4.5, Mustache 0.9.11 |
 | **复杂度** | moderate (71 个文件, 115 知识节点, 221 关系边) |
 
 ### 核心架构
@@ -96,6 +96,25 @@ User Input → Prompt 构建 → LLM 调用 → 响应解析
 | `ProductSearchTool.java` | 产品搜索 (keyword/category/price) |
 | `OrderQueryTool.java` | 订单查询 (byOrderNo/byCustomerName) |
 | `CalculatorTool.java` | 数学表达式求值 (ScriptEngine) |
+
+### RAG 模块 (`com.shopai.agent.rag`)
+
+**向量检索 + 知识库管理层** — 基于 Chroma + text2vec-large-chinese 实现政策文档的向量化存储与语义检索。
+
+| 文件 | 职责 |
+|------|------|
+| `Text2VecEmbeddingModel.java` | 实现 LC4j `EmbeddingModel`，管理 Python sidecar 进程（启动/健康检查/编码/销毁） |
+| `PolicyRagService.java` | 检索编排: 向量化查询 → Chroma 搜索 → 结果格式化 |
+| `DocumentIndexService.java` | 使用 `EmbeddingStoreIngestor` 构建索引：加载文档 → 分段 → 向量化 → 存入 Chroma |
+| `ResultFormatter.java` | 将 `EmbeddingMatch` 列表格式化为 LLM 可读的政策条款文本 |
+| `PolicyQueryTool.java` | LC4j `@Tool` 注解工具，供 Agent 在需要时调用 RAG 检索 |
+| `PolicyController.java` | REST API: 文档上传/删除/列表 + 索引重建 + 分块预览 |
+
+**数据流:**
+```
+政策 .md 文档 → DocumentIndexService → EmbeddingStoreIngestor → Chroma
+用户提问 → PolicyRagService → Text2VecEmbeddingModel → Chroma 查询 → ResultFormatter → LLM
+```
 
 ### 配置层 (`layer-config`)
 **应用配置与工程基础设施** — Bean 装配、数据初始化、构建配置。
@@ -205,8 +224,9 @@ User Input → Prompt 构建 → LLM 调用 → 响应解析
 | 5 | **LLM 适配器** | `LlmAdapter.java`, `LangChain4jAdapter.java` | 适配器模式封装大模型 |
 | 6 | **Prompt 引擎** | `PromptEngine.java`, `MustachePromptEngine.java`, `*.mustache` | Mustache 模板构建提示词 |
 | 7 | **记忆管理器** | `MemoryManager.java`, `H2MemoryManager.java`, `schema.sql` | H2 持久化对话历史 |
-| 8 | **工具系统** | `ToolRegistry.java`, `DefaultToolRegistry.java`, 3 个 Tool | Agent 的行动能力 |
-| 9 | **Web API 层** | `ChatController.java`, `SessionController.java` | REST + SSE 通信 |
+| 8 | **工具系统** | `ToolRegistry.java`, `DefaultToolRegistry.java`, 4 个 Tool | Agent 的行动能力 |
+| 8.5 | **RAG 模块** | `Text2VecEmbeddingModel.java`, `PolicyRagService.java`, `DocumentIndexService.java` | 向量检索 + 知识库管理 |
+| 9 | **Web API 层** | `ChatController.java`, `SessionController.java`, `PolicyController.java` | REST + SSE 通信 |
 | 10 | **前端 UI** | `App.tsx`, 7 组件, `useSSE.ts`, `chatStore.ts` | React 聊天界面 |
 | 11 | **配置装配与测试** | `AgentConfig.java`, `application.yml`, 3 个 Test | 全栈串联 + 验证 |
 
@@ -226,6 +246,8 @@ User Input → Prompt 构建 → LLM 调用 → 响应解析
 | `ProductSearchTool.java` | moderate | 动态 SQL 拼接 + 参数化查询 (防注入) |
 | `Sidebar.tsx` | moderate | 105 行前端最复杂组件，会话 CRUD + 状态联动 |
 | `InputBar.tsx` | moderate | 83 行多行输入 + Enter 发送 + SSE 集成 |
+| `Text2VecEmbeddingModel.java` | moderate | Python sidecar 生命周期管理 + 进程通信 |
+| `PolicyRagService.java` | moderate | 向量化 → Chroma 检索 → 结果格式化全流程编排 |
 
 ---
 
@@ -233,7 +255,7 @@ User Input → Prompt 构建 → LLM 调用 → 响应解析
 
 ### 环境要求
 
-- **JDK 17+** | **Maven 3.8+** | **Node.js 18+** | **OpenAI API Key** (或兼容 API)
+- **JDK 21+** | **Maven 3.8+** | **Node.js 18+** | **OpenAI API Key** (或兼容 API) | **Docker Desktop** (Chroma) | **Python 3.9+** (embedding sidecar)
 
 ### 启动步骤
 
@@ -267,7 +289,7 @@ cd backend && mvn test
 ## 7. 开发路线
 
 - **Phase 1** ✅ 已完成 — 核心闭环 (15 领域模型 + 引擎 + 适配器 + 工具 + Web + UI + 测试)
-- **Phase 2** 🔜 计划中 — RAG + 向量数据库 + 工具扩展 + 多轮优化
+- **Phase 2** ✅ 已完成 — RAG (Chroma + text2vec + PolicyRagService) + 知识库管理 UI + PolicyQueryTool
 - **Phase 3** 🔜 计划中 — Docker 容器化 + 监控 + 限流 + 认证
 
 ---

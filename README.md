@@ -6,7 +6,7 @@
 
 | 层级 | 技术 |
 |------|------|
-| 后端框架 | Spring Boot 3.3.0 + Java 17 |
+| 后端框架 | Spring Boot 4.0.6 + Java 21 |
 | LLM 适配 | LangChain4j 0.31.0（OpenAI 兼容协议） |
 | 数据库 | H2（Embedded，PostgreSQL 兼容模式） |
 | 模板引擎 | Mustache 0.9.11（Prompt 构建） |
@@ -15,6 +15,9 @@
 | 样式方案 | Tailwind CSS 3.4 |
 | 状态管理 | Zustand 4.5 |
 | 实时通信 | SSE（Server-Sent Events） |
+| **向量数据库** | Chroma (Docker) |
+| **Embedding 模型** | text2vec-large-chinese (Python sidecar) |
+| **RAG 框架** | LangChain4j RAG API + ChromaEmbeddingStore |
 
 ## 架构概览
 
@@ -134,10 +137,26 @@ my-agent-one/
 
 ### 环境要求
 
-- **JDK 17+**（推荐 JDK 17）
+- **JDK 21+**
 - **Maven 3.8+**
 - **Node.js 18+**
 - **OpenAI API Key**（或其他兼容 API，如 DeepSeek、通义千问）
+
+### 前置依赖 (RAG 模块)
+
+1. **Docker Desktop** — 启动 Chroma 向量数据库:
+   ```bash
+   docker pull chromadb/chroma
+   docker run -d -p 8000:8000 chromadb/chroma
+   ```
+
+2. **Python 3.9+** — 安装 Embedding sidecar 依赖:
+   ```bash
+   cd backend
+   pip install -r requirements-sidecar.txt
+   ```
+
+3. **模型文件** — `text2vec-large-chinese` 存放于 `D:\models\huggingface`（或修改 `application.yml` 中的 `shopai.rag.embedding.model-path`）
 
 ### 1. 配置 LLM
 
@@ -216,6 +235,16 @@ event: final
 data: {"messageId":"xxx","content":"您好，iPhone 15...","steps":[...],"tokenUsage":{...},"latencyMs":1234}
 ```
 
+### 知识库管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/knowledge/documents` | 获取已上传的文档列表 |
+| `POST` | `/api/knowledge/upload` | 上传政策文档（.md / .txt） |
+| `DELETE` | `/api/knowledge/documents/{id}` | 删除指定文档 |
+| `POST` | `/api/knowledge/rebuild` | 重建向量索引 |
+| `GET` | `/api/knowledge/chunks/{docId}` | 预览文档分块（待增强） |
+
 ## 配置文件
 
 ```yaml
@@ -249,6 +278,7 @@ Agent 拥有 3 个工具，会根据用户意图自动选择和调用：
 | `ProductSearchTool` | 搜索产品（关键词/分类/价格） | "有没有 5000 以下的手机？" |
 | `OrderQueryTool` | 查询订单（订单号/客户名） | "查一下我的订单 20240611001" |
 | `CalculatorTool` | 数学计算 | "iPhone 15 打 9 折多少钱？" |
+| `PolicyQueryTool` | RAG 知识库检索（退换货/保修/物流政策） | "退货政策是什么？" |
 
 ## H2 数据库
 
@@ -278,9 +308,11 @@ JDBC URL: `jdbc:h2:file:./data/shopai`
 - [x] React 对话 UI
 - [x] 单元测试 + 集成测试（8 tests）
 
-### Phase 2: RAG + 工具增强 （计划中）
-- [ ] 向量数据库（document_chunk 表 + embedding）
-- [ ] 知识库检索工具
+### Phase 2: RAG + 工具增强 ✅ 已完成
+- [x] Chroma 向量数据库 + text2vec-large-chinese Embedding
+- [x] 知识库检索工具（PolicyQueryTool + PolicyRagService）
+- [x] 文档索引管理（DocumentIndexService + EmbeddingStoreIngestor）
+- [x] 知识库管理页面（上传/删除/重建索引）
 - [ ] 工具数量扩展（退款、售后、物流追踪）
 - [ ] 多轮对话上下文优化
 
@@ -299,7 +331,7 @@ JDBC URL: `jdbc:h2:file:./data/shopai`
 |---------|---------|
 | Agent 核心模块开发 | ReActAgentEngine — THOUGHT/TOOL_CALL/FINAL 循环 |
 | AI 能力集成 | LangChain4jAdapter — 统一 LLM 调用接口，支持模型切换 |
-| RAG 与知识库 | Prompt Engine + Memory Manager（Phase 2 扩展向量检索）|
+| RAG 与知识库 | Chroma + text2vec-large-chinese + PolicyRagService + LangChain4j RAG API |
 | 工具生态建设 | ToolRegistry + 3 个工具（JSON Schema 参数 + Function Handler）|
 | 性能与稳定性 | Token 统计、延迟追踪、错误处理 |
 | 工程能力 | Spring Boot + H2 + SSE + React + TypeScript + 测试体系 |
