@@ -24,6 +24,20 @@ shopai:
   agent:
     max-iterations: 10
     max-history-messages: 20
+  rag:
+    embedding:
+      model-path: D:/models/huggingface
+      model-name: text2vec-large-chinese
+      sidecar-port: 9876
+      sidecar-startup-timeout-seconds: 30
+    chroma:
+      host: localhost
+      port: 8000
+      collection: shopai_policies
+    retrieval:
+      top-k: 3
+      min-score: 0.5
+    policies-dir: policies/
   langfuse:
     host: https://jp.cloud.langfuse.com
 
