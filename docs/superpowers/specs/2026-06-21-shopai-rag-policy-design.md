@@ -27,7 +27,9 @@
 | 文档格式 | Markdown (`.md`) | 结构好解析、便于维护 |
 | Chunking 策略 | 按 `##` 分节 + 节内按段落切 | 保留章节路径,语义完整 |
 | Agent 集成方式 | 作为 Tool (`@Tool("queryPolicy")`) | 与现有 3 个 Tool 模式一致 |
-| Chroma 交互 | 原生 REST API + RestTemplate | 无额外 SDK 依赖 |
+| Chroma 交互 | LangChain4j `ChromaEmbeddingStore` | 官方集成，与现有 LangChain4j 体系一致 |
+| 文档切分 | LangChain4j `DocumentByParagraphSplitter` | 内置 API，保持与 TextSegment 生态一致 |
+| 文档加载 | LangChain4j `FileSystemDocumentLoader` | 统一 Document 抽象 |
 
 ## 4. 架构总览
 
@@ -50,30 +52,24 @@
 │  │  (已有)     │  │ 上传/管理文档   │                 │
 │  └─────┬──────┘  └──────┬────────┘                  │
 │        │                │                            │
-│  ┌─────▼──────┐  ┌──────▼────────┐                  │
-│  │ReActAgent  │  │PolicyRag      │                   │
-│  │Engine(已有)│  │Service(新增)   │                   │
-│  └─────┬──────┘  └──────┬────────┘                  │
-│        │                │                            │
-│        │         ┌──────▼────────┐                   │
-│        │         │DocumentParser │ (新增)             │
-│        │         │ - Markdown解析 │                  │
-│        │         │ - 按##分节切分 │                  │
-│        │         │ - 元数据挂载   │                  │
-│        │         └──────┬────────┘                   │
-│        │                │                            │
-│        │         ┌──────▼────────┐                   │
-│        │         │EmbeddingService│ (新增)            │
-│        │         │ - 管理Python子进程                 │
-│        │         │ - HTTP调用sidecar                  │
-│        │         │ - encode(text) → float[1024]      │
-│        │         └──────┬────────┘                   │
-│        │                │                            │
-│  ┌─────▼────────┐  ┌───▼────────┐                   │
-│  │ 已有3个Tool   │  │  Chroma    │                   │
-│  │+PolicyQuery  │  │  (Docker)  │                   │
-│  │ Tool(新增)   │  │  :8000     │                   │
-│  └──────────────┘  └────────────┘                   │
+│  ┌─────▼──────┐  ┌──────▼──────────────┐                  │
+│  │ReActAgent  │  │PolicyRagService(新增) │                  │
+│  │Engine(已有)│  │ - 检索编排            │                  │
+│  └─────┬──────┘  │ - ResultFormatter    │                  │
+│        │         └──────┬───────────────┘                  │
+│        │                │                                   │
+│        │         ┌──────▼───────────────┐                   │
+│        │         │EmbeddingModel(新增)   │                   │
+│        │         │ - 实现 LC4j 接口      │                   │
+│        │         │ - 管理Python子进程     │                   │
+│        │         │ - encode→float[1024]  │                   │
+│        │         └──────┬───────────────┘                   │
+│        │                │                                   │
+│  ┌─────▼────────┐  ┌───▼────────────────┐                   │
+│  │ 已有3个Tool   │  │ ChromaEmbeddingStore│                  │
+│  │+PolicyQuery  │  │ (LC4j 官方集成)     │                   │
+│  │ Tool(新增)   │  │ → Chroma :8000     │                   │
+│  └──────────────┘  └────────────────────┘                   │
 │                                                      │
 │  ┌────────────────────────────┐                      │
 │  │ Embedding Sidecar (Python) │                      │
@@ -85,133 +81,146 @@
 
 ## 5. 新增模块详细设计
 
-### 5.1 DocumentParser — 文档解析与切分
+### 5.1 文档加载与切分 — 使用 LangChain4j 内置 API
 
-**职责**：将 Markdown 政策文档解析为结构化 Chunk 列表
+**使用 LangChain4j 标准文档处理链**，无需自定义 Parser：
 
-**包路径**：`com.shopai.agent.rag`
-
-**输入**：`String filePath`（Markdown 文件路径）  
-**输出**：`List<Chunk>`
-
-**Chunk 数据结构**：
 ```java
-public record Chunk(
-    String content,      // chunk 纯文本
-    String sectionPath,  // 章节路径，如 "退换货政策 > 无理由退货"
-    String docName,      // 源文档文件名
-    int chunkIndex       // 在文档内的序号 (从0开始)
-) {}
+// 文档加载
+Document document = FileSystemDocumentLoader.loadDocument(
+    Paths.get("policies/return-policy.md"),
+    new TextDocumentParser()
+);
+
+// 按段落切分（maxSegmentSize=1000字符, maxOverlap=0）
+DocumentSplitter splitter = new DocumentByParagraphSplitter(1000, 0,
+    new DocumentByParagraphSplitter.ParagraphChecker() {
+        @Override
+        public boolean isParagraphBoundary(String text, int index) {
+            return text.charAt(index) == '\n' && index > 0 && text.charAt(index - 1) == '\n';
+        }
+    }
+);
+
+List<TextSegment> segments = splitter.split(document);
 ```
 
-**切分规则**：
-1. 按 `##` 标题分节，sectionPath 累积父子关系（从文档标题到当前 `##`）
-2. 节内以空行为界切段落
-3. 超长段落（>1000 字）按中文句号 `。` 二次切分
-4. 末尾 chunk 若 < 50 字，合并到上一个 chunk
-5. 空白 chunk 丢弃
+**元数据挂载**：通过 `TextSegmentTransformer` 为每个 segment 添加章节路径：
 
-**伪代码流程**：
-```
-readMarkdown(file)
-  → 提取 # 标题作为文档名 (docName)
-  → 按 ## 分割 section
-  → 每个 section 内按 \n\n 分割段落
-  → 包装为 Chunk(sectionPath=累积的标题路径)
-  → 末尾碎片检查 & 合并
-  → return List<Chunk>
+```java
+.textSegmentTransformer(segment -> {
+    String fileName = segment.metadata().getString(DOCUMENT_FILE_NAME);
+    return TextSegment.from(
+        "[" + fileName + "] " + segment.text(),
+        segment.metadata()
+    );
+})
 ```
 
-### 5.2 EmbeddingService — 向量化服务
+**关键点**：
+- `DocumentByParagraphSplitter` 以空行为界切分，符合政策文档结构
+- `FileSystemDocumentLoader` 支持单文件 + 批量加载
+- `TextSegment` 自带 `metadata()` Map，无需自定义 record
+- MVP 阶段不实现标题路径累积（Markdown `##` 解析），通过文件名区分来源即可
 
-**职责**：管理 Python embedding sidecar，提供文本向量化接口
+### 5.2 EmbeddingService — 实现 LangChain4j EmbeddingModel 接口
+
+**职责**：管理 Python embedding sidecar，实现 `dev.langchain4j.model.embedding.EmbeddingModel` 接口
 
 **包路径**：`com.shopai.agent.rag`
 
-**Sidecar 部署**：
-- Python 微服务（Flask），`sentence-transformers` 加载 `text2vec-large-chinese`
-- 监听 `localhost:9xxx`（端口通过配置指定，默认 9876）
-- 端点：`POST /encode` 接收 `{"texts": [...]}`，返回 `{"embeddings": [[...], ...]}`
-
-**Spring Boot 侧管理**：
 ```java
 @Component
-public class EmbeddingService implements DisposableBean {
+public class Text2VecEmbeddingModel implements EmbeddingModel, DisposableBean {
 
     private Process pythonProcess;
+    private String sidecarUrl;
+
+    @Value("${shopai.rag.embedding.model-path}")
+    private String modelPath;
+
+    @Value("${shopai.rag.embedding.model-name}")
+    private String modelName;
+
+    @Value("${shopai.rag.embedding.sidecar-port:9876}")
+    private int sidecarPort;
 
     @PostConstruct
     public void startSidecar() {
-        // ProcessBuilder 启动 Python 脚本
-        // 等待 /health 就绪，超时 30s
+        // ProcessBuilder 启动 Python Flask 侧服务
+        // 轮询 GET /health 直至就绪，超时 30s
     }
 
-    public float[] encode(String text) { ... }
-    public float[][] encode(List<String> texts) { ... }
+    @Override
+    public Embedding embed(String text) {
+        // POST /encode {"texts": [text]}
+        // 返回 Embedding.from(floatArray)
+        return embedAll(List.of(text)).content().getFirst();
+    }
+
+    @Override
+    public Response<Embedding> embedAll(List<TextSegment> segments) {
+        List<String> texts = segments.stream().map(TextSegment::text).toList();
+        float[][] vectors = encode(texts);
+        List<Embedding> embeddings = new ArrayList<>();
+        for (float[] v : vectors) {
+            embeddings.add(Embedding.from(v));
+        }
+        return Response.from(embeddings);
+    }
+
+    // 内部 HTTP 调用方法
+    private float[][] encode(List<String> texts) {
+        // RestTemplate POST → Python sidecar
+    }
 
     @Override
     public void destroy() {
-        // 关闭子进程
+        if (pythonProcess != null && pythonProcess.isAlive()) {
+            pythonProcess.destroyForcibly();
+        }
     }
 }
 ```
 
-**故障处理**：
-- 启动超时 → 抛异常阻止应用启动，日志明确指引
-- 运行时调用失败 → 重试 1 次，依然失败则抛 `EmbeddingException`
-- Sidecar 意外退出 → 记录错误日志，后续 `encode` 调用直接失败（MVP 不做自动重启）
+**为什么实现 `EmbeddingModel`**：
+- `EmbeddingStoreIngestor` 需要 `EmbeddingModel` 参数
+- `EmbeddingStoreContentRetriever` 也需要 `EmbeddingModel`
+- 实现标准接口后，可无缝接入 LangChain4j RAG 全家桶
 
-### 5.3 ChromaHttpClient — 向量存储交互
+### 5.3 ChromaEmbeddingStore — 使用 LangChain4j 官方集成
 
-**职责**：封装 Chroma REST API 调用
+**无需自定义 HTTP Client**，直接使用 LangChain4j 官方 `ChromaEmbeddingStore`：
 
-**包路径**：`com.shopai.agent.rag`
-
-**Chroma 环境**：
-- Docker 部署：`chromadb/chroma`
-- 端口：`localhost:8000`
-- Collection 名称：`shopai_policies`
-- 向量维度：1024（text2vec-large-chinese 输出维度）
-
-**核心方法**：
-```java
-public class ChromaHttpClient {
-
-    // 批量写入 chunks + embeddings
-    public void add(List<ChunkEmbedding> items) { ... }
-
-    // 检索 topK 个最相似 chunk
-    public List<SearchResult> query(float[] embedding, int topK) { ... }
-
-    // 删除 collection（重建索引前清空）
-    public void deleteCollection() { ... }
-
-    // 获取已索引数量
-    public int collectionSize() { ... }
-}
-
-record ChunkEmbedding(
-    String docName,
-    String sectionPath,
-    int chunkIndex,
-    String content,
-    float[] embedding
-) {}
-
-record SearchResult(
-    String content,
-    String docName,
-    String sectionPath,
-    int chunkIndex,
-    double score       // 相似度分数
-) {}
+**Maven 依赖**（新增）：
+```xml
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-chroma</artifactId>
+    <version>${langchain4j.version}</version>
+</dependency>
 ```
 
-**Chroma REST API 映射**：
-- `POST /api/v1/collections/{name}/add` → 写入
-- `POST /api/v1/collections/{name}/query` → 检索
-- `DELETE /api/v1/collections/{name}` → 删除
-- `GET /api/v1/collections/{name}` → 元信息
+**Bean 配置**：
+```java
+@Bean
+public ChromaEmbeddingStore chromaEmbeddingStore(
+    @Value("${shopai.rag.chroma.host}") String host,
+    @Value("${shopai.rag.chroma.port}") int port,
+    @Value("${shopai.rag.chroma.collection}") String collection) {
+
+    return ChromaEmbeddingStore.builder()
+        .baseUrl("http://" + host + ":" + port)
+        .collectionName(collection)
+        .build();
+}
+```
+
+**核心类型说明**：
+- `EmbeddingStore<TextSegment>` — 泛型接口，ChromaEmbeddingStore 实现
+- `TextSegment` — LangChain4j 标准文本段（替代自定义 Chunk record）
+- `EmbeddingMatch<TextSegment>` — 检索结果（替代自定义 SearchResult record）
+- `Embedding` — 向量封装（替代 float[]）
 
 ### 5.4 PolicyRagService — 检索编排
 
@@ -223,24 +232,30 @@ record SearchResult(
 @Service
 public class PolicyRagService {
 
-    private final EmbeddingService embeddingService;
-    private final ChromaHttpClient chromaClient;
-    private final int topK;  // 从配置读取，默认 3
+    private final EmbeddingModel embeddingModel;
+    private final EmbeddingStore<TextSegment> embeddingStore;
+    private final int topK;      // 从配置读取，默认 3
+    private final double minScore; // 从配置读取，默认 0.5
 
-    /**
-     * 检索售后政策知识库
-     * @param question 用户原始问题
-     * @return 已格式化的检索结果，包含原文引用和章节路径
-     */
     public String query(String question) {
-        float[] embedding = embeddingService.encode(question);
-        List<SearchResult> results = chromaClient.query(embedding, topK);
-        return ResultFormatter.format(results);
+        // 1. 向量化问题
+        Embedding queryEmbedding = embeddingModel.embed(question).content();
+
+        // 2. 检索 (使用 LangChain4j 标准 API)
+        EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
+            .queryEmbedding(queryEmbedding)
+            .maxResults(topK)
+            .minScore(minScore)
+            .build();
+        EmbeddingSearchResult<TextSegment> result = embeddingStore.search(request);
+
+        // 3. 格式化结果
+        return ResultFormatter.format(result.matches());
     }
 }
 ```
 
-**ResultFormatter 输出格式**（注入给 LLM 的文本）：
+**ResultFormatter** — 将 `List<EmbeddingMatch<TextSegment>>` 格式化为 LLM 可读文本：
 
 ```
 【相关政策条款】
@@ -302,9 +317,9 @@ public class PolicyQueryTool {
 - 启动时若 Chroma 为空，自动从该目录构建索引
 - 上传文档写入该目录，然后触发增量索引
 
-### 5.7 DocumentIndexService — 索引构建服务
+### 5.7 DocumentIndexService — 使用 EmbeddingStoreIngestor 构建索引
 
-**职责**：组合 Parser + Embedding + Chroma，完成索引构建
+**职责**：组合 LC4j DocumentLoader + Splitter + EmbeddingModel + EmbeddingStore，完成索引构建
 
 **包路径**：`com.shopai.agent.rag`
 
@@ -312,26 +327,30 @@ public class PolicyQueryTool {
 @Service
 public class DocumentIndexService {
 
-    private final DocumentParser parser;
-    private final EmbeddingService embeddingService;
-    private final ChromaHttpClient chromaClient;
+    private final EmbeddingStore<TextSegment> embeddingStore;
+    private final EmbeddingModel embeddingModel;
+    private final String policiesDir; // 从配置读取
 
-    /**
-     * 全量构建索引：清空 Chroma，遍历 policies/ 目录，解析 + 向量化 + 写入
-     */
     public int buildIndex() {
-        chromaClient.deleteCollection();
-        List<File> files = scanPolicyDir();
-        int totalChunks = 0;
-        for (File file : files) {
-            List<Chunk> chunks = parser.parse(file);
-            List<String> texts = chunks.stream().map(Chunk::content).toList();
-            float[][] embeddings = embeddingService.encode(texts);
-            // 组装 ChunkEmbedding，批量写入 Chroma
-            chromaClient.add(assemble(chunks, embeddings));
-            totalChunks += chunks.size();
-        }
-        return totalChunks;
+        // 1. 批量加载 policies/ 目录下所有 .md 文件
+        List<Document> documents = FileSystemDocumentLoader.loadDocuments(
+            Paths.get(policiesDir), new TextDocumentParser()
+        );
+
+        // 2. 清空已有索引
+        embeddingStore.removeAll();
+
+        // 3. 使用 EmbeddingStoreIngestor 一站式处理
+        EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
+            .documentSplitter(new DocumentByParagraphSplitter(1000, 0))
+            .embeddingModel(embeddingModel)
+            .embeddingStore(embeddingStore)
+            .build();
+
+        ingestor.ingest(documents);
+
+        // 4. 返回总 segment 数（通过再次搜索估算或直接返回文档数）
+        return documents.size();
     }
 }
 ```
@@ -416,7 +435,7 @@ shopai:
 |------|---------|
 | `README.md` | 技术栈增加 Chroma + text2vec；API 增加知识库管理端点；快速启动增加 Docker/Python 依赖 |
 | `docs/ONBOARDING.md` | 新增 RAG 模块架构说明；新增 `rag/` 包介绍；新增启动步骤 |
-| `backend/pom.xml` | 无需新增依赖（使用 RestTemplate + ProcessBuilder 均为 JDK 内置） |
+| `backend/pom.xml` | 新增 `langchain4j-chroma` 依赖；移除 `mustache` 依赖（未使用） |
 
 ## 9. 质量目标
 
