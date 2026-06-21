@@ -1,13 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { useChatStore } from '../store/chatStore';
-import type { TokenUsage } from '../types';
-
-interface SSEDonePayload {
-  messageId: string;
-  content: string;
-  tokenUsage: TokenUsage;
-  latencyMs: number;
-}
 
 export function useSSE() {
   const { addMessage, setIsStreaming } = useChatStore();
@@ -33,8 +25,7 @@ export function useSSE() {
       useChatStore.getState().updateLastAssistant((prev) => prev + token);
     });
 
-    es.addEventListener('done', (e: MessageEvent) => {
-      const data: SSEDonePayload = JSON.parse(e.data);
+    es.addEventListener('done', () => {
       setIsStreaming(false);
       es.close();
     });
