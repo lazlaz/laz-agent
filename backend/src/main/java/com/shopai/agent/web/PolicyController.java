@@ -3,6 +3,7 @@ package com.shopai.agent.web;
 import com.shopai.agent.rag.DocumentIndexService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.ResponseEntity;
@@ -26,10 +27,13 @@ public class PolicyController {
     private final DocumentIndexService indexService;
     private final Path policiesPath;
 
-    public PolicyController(DocumentIndexService indexService) {
+    public PolicyController(
+        DocumentIndexService indexService,
+        @Value("${shopai.rag.policies-dir:policies/}") String policiesDir
+    ) {
         this.indexService = indexService;
         String resourcePath = getClass().getClassLoader().getResource("").getPath();
-        this.policiesPath = Paths.get(resourcePath, "policies").normalize();
+        this.policiesPath = Paths.get(resourcePath, policiesDir).normalize();
     }
 
     @PostMapping("/upload")
@@ -41,7 +45,10 @@ public class PolicyController {
             }
 
             Files.createDirectories(policiesPath);
-            Path dest = policiesPath.resolve(filename);
+            Path dest = policiesPath.resolve(filename).normalize();
+            if (!dest.startsWith(policiesPath)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "非法路径"));
+            }
             file.transferTo(dest.toFile());
 
             log.info("Document uploaded: {}", filename);
@@ -105,6 +112,9 @@ public class PolicyController {
     public ResponseEntity<Map<String, Object>> previewChunks(@PathVariable String docId) {
         // MVP 阶段返回简单的文件信息（Chroma 查询需要额外设计），后续可增强
         Path file = policiesPath.resolve(docId).normalize();
+        if (!file.startsWith(policiesPath)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "非法路径"));
+        }
         if (!Files.exists(file)) {
             return ResponseEntity.notFound().build();
         }
