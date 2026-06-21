@@ -5,6 +5,7 @@ import com.shopai.agent.llm.LangChain4jAdapter;
 import com.shopai.agent.memory.H2MemoryManager;
 import com.shopai.agent.tool.CalculatorTool;
 import com.shopai.agent.tool.OrderQueryTool;
+import com.shopai.agent.tool.PolicyQueryTool;
 import com.shopai.agent.tool.ProductSearchTool;
 import com.shopai.agent.tracing.OtelChatModelListener;
 import dev.langchain4j.data.segment.TextSegment;
@@ -101,11 +102,12 @@ public class AgentConfig {
         ChatMemoryProvider memoryProvider,
         ProductSearchTool productSearch,
         OrderQueryTool orderQuery,
-        CalculatorTool calculator) {
+        CalculatorTool calculator,
+        PolicyQueryTool policyQuery) {
         return AiServices.builder(ShopAiAgent.class)
             .streamingChatModel(streamingModel)
             .chatMemoryProvider(memoryProvider)
-            .tools(productSearch, orderQuery, calculator)
+            .tools(productSearch, orderQuery, calculator, policyQuery)
             .build();
     }
 
