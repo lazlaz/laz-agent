@@ -1,11 +1,11 @@
-"""Text2Vec Embedding Sidecar — HTTP wrapper for text2vec-large-chinese."""
+"""Embedding Sidecar — HTTP wrapper for BAAI/bge-small-zh-v1.5."""
 import sys
 import os
 from flask import Flask, request, jsonify
 from sentence_transformers import SentenceTransformer
 
 MODEL_PATH = os.environ.get("MODEL_PATH", r"D:\models\huggingface")
-MODEL_NAME = os.environ.get("MODEL_NAME", "text2vec-large-chinese")
+MODEL_NAME = os.environ.get("MODEL_NAME", "BAAI/bge-small-zh-v1.5")
 PORT = int(os.environ.get("PORT", "9876"))
 
 app = Flask(__name__)

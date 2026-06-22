@@ -16,7 +16,7 @@
 | 状态管理 | Zustand 4.5 |
 | 实时通信 | SSE（Server-Sent Events） |
 | **向量数据库** | Chroma (Docker) |
-| **Embedding 模型** | text2vec-large-chinese (Python sidecar) |
+| **Embedding 模型** | BAAI/bge-small-zh-v1.5 (Python sidecar) |
 | **RAG 框架** | LangChain4j RAG API + ChromaEmbeddingStore |
 
 ## 架构概览
@@ -156,7 +156,7 @@ my-agent-one/
    pip install -r requirements-sidecar.txt
    ```
 
-3. **模型文件** — `text2vec-large-chinese` 存放于 `D:\models\huggingface`（或修改 `application.yml` 中的 `shopai.rag.embedding.model-path`）
+3. **模型文件** — `BAAI/bge-small-zh-v1.5` 存放于 `D:\models\huggingface`（或修改 `application.yml` 中的 `shopai.rag.embedding.model-path`）
 
 ### 1. 配置 LLM
 
@@ -309,7 +309,7 @@ JDBC URL: `jdbc:h2:file:./data/shopai`
 - [x] 单元测试 + 集成测试（8 tests）
 
 ### Phase 2: RAG + 工具增强 ✅ 已完成
-- [x] Chroma 向量数据库 + text2vec-large-chinese Embedding
+- [x] Chroma 向量数据库 + BAAI/bge-small-zh-v1.5 Embedding
 - [x] 知识库检索工具（PolicyQueryTool + PolicyRagService）
 - [x] 文档索引管理（DocumentIndexService + EmbeddingStoreIngestor）
 - [x] 知识库管理页面（上传/删除/重建索引）
@@ -331,7 +331,7 @@ JDBC URL: `jdbc:h2:file:./data/shopai`
 |---------|---------|
 | Agent 核心模块开发 | ReActAgentEngine — THOUGHT/TOOL_CALL/FINAL 循环 |
 | AI 能力集成 | LangChain4jAdapter — 统一 LLM 调用接口，支持模型切换 |
-| RAG 与知识库 | Chroma + text2vec-large-chinese + PolicyRagService + LangChain4j RAG API |
+| RAG 与知识库 | Chroma + BAAI/bge-small-zh-v1.5 + PolicyRagService + LangChain4j RAG API |
 | 工具生态建设 | ToolRegistry + 3 个工具（JSON Schema 参数 + Function Handler）|
 | 性能与稳定性 | Token 统计、延迟追踪、错误处理 |
 | 工程能力 | Spring Boot + H2 + SSE + React + TypeScript + 测试体系 |

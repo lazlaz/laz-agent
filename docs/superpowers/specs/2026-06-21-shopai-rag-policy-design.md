@@ -21,7 +21,7 @@
 | 决策项 | 选型 | 理由 |
 |--------|------|------|
 | 向量数据库 | Chroma (Docker) | 轻量、REST API 直接交互、面试主流 |
-| Embedding 模型 | text2vec-large-chinese | 本地 CPU 可跑、免费、中文效果好 |
+| Embedding 模型 | BAAI/bge-small-zh-v1.5 | 本地 CPU 可跑、免费、中文效果好 |
 | 模型路径 | `D:\models\huggingface` | 用户指定目录 |
 | Java 调用方式 | Python HTTP 侧服务, Spring Boot 启动时拉起 | encoding sidecar 模式,架构清晰 |
 | 文档格式 | Markdown (`.md`) | 结构好解析、便于维护 |
@@ -62,7 +62,7 @@
 │        │         │EmbeddingModel(新增)   │                   │
 │        │         │ - 实现 LC4j 接口      │                   │
 │        │         │ - 管理Python子进程     │                   │
-│        │         │ - encode→float[1024]  │                   │
+│        │         │ - encode→float[512]  │                   │
 │        │         └──────┬───────────────┘                   │
 │        │                │                                   │
 │  ┌─────▼────────┐  ┌───▼────────────────┐                   │
@@ -73,7 +73,7 @@
 │                                                      │
 │  ┌────────────────────────────┐                      │
 │  │ Embedding Sidecar (Python) │                      │
-│  │ text2vec-large-chinese     │                      │
+│  │ BAAI/bge-small-zh-v1.5     │                      │
 │  │ localhost:9876             │                      │
 │  └────────────────────────────┘                      │
 └─────────────────────────────────────────────────────┘
@@ -400,7 +400,7 @@ shopai:
   rag:
     embedding:
       model-path: D:/models/huggingface
-      model-name: text2vec-large-chinese
+      model-name: BAAI/bge-small-zh-v1.5
       sidecar-port: 9876
       sidecar-startup-timeout-seconds: 30
     chroma:
@@ -422,7 +422,7 @@ shopai:
 ```
 
 **启动检查清单**：
-- `application-local.yml` 中无需新增密钥（text2vec 本地运行、Chroma 无认证）
+- `application-local.yml` 中无需新增密钥（bge-small 本地运行、Chroma 无认证）
 - Docker 需预先安装并拉取 `chromadb/chroma` 镜像
 - Python 环境需安装 `sentence-transformers` 包
 - 模型文件需在 `D:\models\huggingface` 目录下已下载
@@ -433,7 +433,7 @@ shopai:
 
 | 文档 | 更新内容 |
 |------|---------|
-| `README.md` | 技术栈增加 Chroma + text2vec；API 增加知识库管理端点；快速启动增加 Docker/Python 依赖 |
+| `README.md` | 技术栈增加 Chroma + bge-small；API 增加知识库管理端点；快速启动增加 Docker/Python 依赖 |
 | `docs/ONBOARDING.md` | 新增 RAG 模块架构说明；新增 `rag/` 包介绍；新增启动步骤 |
 | `backend/pom.xml` | 新增 `langchain4j-chroma` 依赖；移除 `mustache` 依赖（未使用） |
 

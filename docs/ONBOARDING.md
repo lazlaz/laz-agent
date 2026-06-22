@@ -99,7 +99,7 @@ User Input → Prompt 构建 → LLM 调用 → 响应解析
 
 ### RAG 模块 (`com.shopai.agent.rag`)
 
-**向量检索 + 知识库管理层** — 基于 Chroma + text2vec-large-chinese 实现政策文档的向量化存储与语义检索。
+**向量检索 + 知识库管理层** — 基于 Chroma + BAAI/bge-small-zh-v1.5 实现政策文档的向量化存储与语义检索。
 
 | 文件 | 职责 |
 |------|------|
@@ -289,7 +289,7 @@ cd backend && mvn test
 ## 7. 开发路线
 
 - **Phase 1** ✅ 已完成 — 核心闭环 (15 领域模型 + 引擎 + 适配器 + 工具 + Web + UI + 测试)
-- **Phase 2** ✅ 已完成 — RAG (Chroma + text2vec + PolicyRagService) + 知识库管理 UI + PolicyQueryTool
+- **Phase 2** ✅ 已完成 — RAG (Chroma + BAAI/bge-small-zh-v1.5 + PolicyRagService) + 知识库管理 UI + PolicyQueryTool
 - **Phase 3** 🔜 计划中 — Docker 容器化 + 监控 + 限流 + 认证
 
 ---

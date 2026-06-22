@@ -4,15 +4,15 @@
 
 **Goal:** 为 ShopAI Agent 新增 RAG 售后政策知识库 — Agent 自动检索政策条款并引用原文回答
 
-**Architecture:** Python Embedding Sidecar (text2vec-large-chinese) + Chroma Docker + LangChain4j 标准 RAG API (EmbeddingModel / ChromaEmbeddingStore / EmbeddingStoreIngestor) + PolicyQueryTool 集成到现有 ReAct Agent
+**Architecture:** Python Embedding Sidecar (BAAI/bge-small-zh-v1.5) + Chroma Docker + LangChain4j 标准 RAG API (EmbeddingModel / ChromaEmbeddingStore / EmbeddingStoreIngestor) + PolicyQueryTool 集成到现有 ReAct Agent
 
-**Tech Stack:** LangChain4j 1.16.2 (chroma / document-splitter), Chroma Docker, text2vec-large-chinese + Flask Sidecar, Spring Boot 3.3, Java 21, React 18 + TypeScript + Zustand
+**Tech Stack:** LangChain4j 1.16.2 (chroma / document-splitter), Chroma Docker, BAAI/bge-small-zh-v1.5 + Flask Sidecar, Spring Boot 3.3, Java 21, React 18 + TypeScript + Zustand
 
 ## Global Constraints
 
 - `langchain4j.version`: 1.16.2
 - 模型路径: `D:\models\huggingface`
-- 模型名: `text2vec-large-chinese`
+- 模型名: `BAAI/bge-small-zh-v1.5`
 - Chroma 端口: `localhost:8000`
 - Sidecar 端口: `localhost:9876`
 - Top-K 默认: 3
@@ -69,14 +69,14 @@
 创建 `backend/embedding_sidecar.py`:
 
 ```python
-"""Text2Vec Embedding Sidecar — HTTP wrapper for text2vec-large-chinese."""
+"""Text2Vec Embedding Sidecar — HTTP wrapper for BAAI/bge-small-zh-v1.5."""
 import sys
 import os
 from flask import Flask, request, jsonify
 from sentence_transformers import SentenceTransformer
 
 MODEL_PATH = os.environ.get("MODEL_PATH", r"D:\models\huggingface")
-MODEL_NAME = os.environ.get("MODEL_NAME", "text2vec-large-chinese")
+MODEL_NAME = os.environ.get("MODEL_NAME", "BAAI/bge-small-zh-v1.5")
 PORT = int(os.environ.get("PORT", "9876"))
 
 app = Flask(__name__)
@@ -120,9 +120,9 @@ torch>=2.0
 ```bash
 cd backend
 pip install -r requirements-sidecar.txt
-# 确保 MODEL_PATH 目录下有 text2vec-large-chinese 模型
+# 确保 MODEL_PATH 目录下有 BAAI/bge-small-zh-v1.5 模型
 set MODEL_PATH=D:\models\huggingface
-set MODEL_NAME=text2vec-large-chinese
+set MODEL_NAME=BAAI/bge-small-zh-v1.5
 set PORT=9876
 python embedding_sidecar.py
 ```
@@ -131,17 +131,17 @@ python embedding_sidecar.py
 
 ```bash
 curl http://localhost:9876/health
-# 预期: {"model":"text2vec-large-chinese","status":"ok"}
+# 预期: {"model":"BAAI/bge-small-zh-v1.5","status":"ok"}
 
 curl -X POST http://localhost:9876/encode -H "Content-Type: application/json" -d "{\"texts\":[\"你好\"]}"
-# 预期: {"embeddings":[[... 1024维浮点数组 ...]]}
+# 预期: {"embeddings":[[... 512维浮点数组 ...]]}
 ```
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add backend/embedding_sidecar.py backend/requirements-sidecar.txt
-git commit -m "feat: 添加 text2vec-large-chinese Embedding sidecar (Flask)
+git commit -m "feat: 添加 BAAI/bge-small-zh-v1.5 Embedding sidecar (Flask)
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
@@ -177,7 +177,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
   rag:
     embedding:
       model-path: D:/models/huggingface
-      model-name: text2vec-large-chinese
+      model-name: BAAI/bge-small-zh-v1.5
       sidecar-port: 9876
       sidecar-startup-timeout-seconds: 30
     chroma:
@@ -1342,7 +1342,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ```markdown
 | **向量数据库** | Chroma (Docker) |
-| **Embedding 模型** | text2vec-large-chinese (Python sidecar) |
+| **Embedding 模型** | BAAI/bge-small-zh-v1.5 (Python sidecar) |
 | **RAG 框架** | LangChain4j RAG API + ChromaEmbeddingStore |
 ```
 
@@ -1353,7 +1353,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 1. Docker Desktop — 拉取 Chroma: `docker pull chromadb/chroma`
 2. Python 3.9+ — `pip install -r requirements-sidecar.txt`
-3. 模型文件 `text2vec-large-chinese` 存放于 `D:\models\huggingface`
+3. 模型文件 `BAAI/bge-small-zh-v1.5` 存放于 `D:\models\huggingface`
 ```
 
 - [ ] **Step 2: 更新 ONBOARDING.md**

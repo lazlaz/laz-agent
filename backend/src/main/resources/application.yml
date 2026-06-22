@@ -27,7 +27,7 @@ shopai:
   rag:
     embedding:
       model-path: D:/models/huggingface
-      model-name: text2vec-large-chinese
+      model-name: BAAI/bge-small-zh-v1.5
       sidecar-port: 9876
       sidecar-startup-timeout-seconds: 30
     chroma:

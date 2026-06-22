@@ -22,4 +22,4 @@ Thumbs.db
 data/
 
 # Sensitive config (local keys)
-**/application-local.yml
+**/application-local.yml__pycache__/
