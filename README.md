@@ -156,7 +156,17 @@ my-agent-one/
    pip install -r requirements-sidecar.txt
    ```
 
-3. **模型文件** — `BAAI/bge-small-zh-v1.5` 存放于 `D:\models\huggingface`（或修改 `application.yml` 中的 `shopai.rag.embedding.model-path`）
+3. **模型文件** — `BAAI/bge-small-zh-v1.5` 存放于 `D:\models\huggingface`
+
+4. **启动 Embedding Sidecar** (先于后端启动):
+   ```bash
+   cd backend
+   set MODEL_PATH=D:\models\huggingface
+   set MODEL_NAME=BAAI/bge-small-zh-v1.5
+   set PORT=9876
+   python embedding_sidecar.py
+   ```
+   确认就绪: `curl http://localhost:9876/health` → `{"status":"ok"}`
 
 ### 1. 配置 LLM
 
@@ -180,6 +190,7 @@ mvn spring-boot:run
 
 启动成功标志：
 ```
+Embedding sidecar configured at http://127.0.0.1:9876
 Loaded 10/10 products
 Loaded 5/5 orders
 Started ShopAiApplication in 1.975 seconds

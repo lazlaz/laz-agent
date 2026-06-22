@@ -6,95 +6,36 @@ import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.RestClientException;
 
-import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * LC4j {@link EmbeddingModel} backed by a user-managed Python embedding sidecar.
+ * <p>
+ * The sidecar is started independently by the user (see {@code embedding_sidecar.py}).
+ * This component simply connects to it over HTTP and implements the standard
+ * LangChain4j embedding interface so the rest of the RAG pipeline works unchanged.
+ */
 @Component
-public class Text2VecEmbeddingModel implements EmbeddingModel, DisposableBean {
+public class Text2VecEmbeddingModel implements EmbeddingModel {
 
     private static final Logger log = LoggerFactory.getLogger(Text2VecEmbeddingModel.class);
 
-    @Value("${shopai.rag.embedding.model-path}")
-    private String modelPath;
-
-    @Value("${shopai.rag.embedding.model-name}")
-    private String modelName;
-
-    @Value("${shopai.rag.embedding.sidecar-port:9876}")
-    private int sidecarPort;
-
-    @Value("${shopai.rag.embedding.sidecar-startup-timeout-seconds:30}")
-    private int startupTimeoutSeconds;
-
-    private Process pythonProcess;
+    private final String sidecarUrl;
     private final RestTemplate restTemplate = new RestTemplate();
-    private String sidecarUrl;
 
-    @PostConstruct
-    public void startSidecar() {
-        sidecarUrl = "http://127.0.0.1:" + sidecarPort;
-        try {
-            log.info("Starting embedding sidecar: model={}, port={}", modelName, sidecarPort);
-            // Resolve sidecar script relative to working directory;
-            // when run via 'cd backend && mvn spring-boot:run' the script is in cwd;
-            // when run from project root the script lives under backend/.
-            java.io.File scriptDir = new java.io.File(System.getProperty("user.dir"));
-            if (!new java.io.File(scriptDir, "embedding_sidecar.py").exists()) {
-                java.io.File backendDir = new java.io.File(scriptDir, "backend");
-                if (new java.io.File(backendDir, "embedding_sidecar.py").exists()) {
-                    scriptDir = backendDir;
-                }
-            }
-            ProcessBuilder pb = new ProcessBuilder(
-                "python", "embedding_sidecar.py"
-            );
-            pb.directory(scriptDir);
-            pb.environment().put("MODEL_PATH", modelPath);
-            pb.environment().put("MODEL_NAME", modelName);
-            pb.environment().put("PORT", String.valueOf(sidecarPort));
-            pb.redirectErrorStream(true);
-            pythonProcess = pb.start();
-
-            // Wait for health endpoint to be ready; guard with try-finally so the
-            // sidecar process is killed on any failure (timeout, InterruptedException, etc.)
-            boolean ready = false;
-            try {
-                long deadline = System.currentTimeMillis() + startupTimeoutSeconds * 1000L;
-                while (System.currentTimeMillis() < deadline) {
-                    try {
-                        Map<?, ?> health = restTemplate.getForObject(sidecarUrl + "/health", Map.class);
-                        if (health != null && "ok".equals(health.get("status"))) {
-                            log.info("Embedding sidecar ready: {}", health);
-                            ready = true;
-                            return;
-                        }
-                    } catch (RestClientException ignored) {
-                        // sidecar not ready yet
-                    }
-                    Thread.sleep(1000);
-                }
-                throw new IllegalStateException("Embedding sidecar failed to start within " + startupTimeoutSeconds + "s");
-            } finally {
-                if (!ready && pythonProcess != null && pythonProcess.isAlive()) {
-                    pythonProcess.destroyForcibly();
-                }
-            }
-        } catch (Exception e) {
-            // Safety net: ensure the sidecar process is cleaned up on any exception
-            if (pythonProcess != null && pythonProcess.isAlive()) {
-                pythonProcess.destroyForcibly();
-            }
-            log.error("Failed to start embedding sidecar", e);
-            throw new RuntimeException("Failed to start embedding sidecar", e);
-        }
+    public Text2VecEmbeddingModel(
+        @Value("${shopai.rag.embedding.sidecar-host:127.0.0.1}") String sidecarHost,
+        @Value("${shopai.rag.embedding.sidecar-port:9876}") int sidecarPort
+    ) {
+        this.sidecarUrl = "http://" + sidecarHost + ":" + sidecarPort;
+        log.info("Embedding sidecar configured at {}", sidecarUrl);
     }
 
     @Override
@@ -130,14 +71,6 @@ public class Text2VecEmbeddingModel implements EmbeddingModel, DisposableBean {
         } catch (RestClientException e) {
             log.error("Embedding sidecar call failed", e);
             throw new RuntimeException("Embedding service unavailable: " + e.getMessage(), e);
-        }
-    }
-
-    @Override
-    public void destroy() {
-        if (pythonProcess != null && pythonProcess.isAlive()) {
-            log.info("Shutting down embedding sidecar");
-            pythonProcess.destroyForcibly();
         }
     }
 }

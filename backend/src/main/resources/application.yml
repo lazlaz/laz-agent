@@ -26,10 +26,8 @@ shopai:
     max-history-messages: 20
   rag:
     embedding:
-      model-path: D:/models/huggingface
-      model-name: BAAI/bge-small-zh-v1.5
+      sidecar-host: 127.0.0.1
       sidecar-port: 9876
-      sidecar-startup-timeout-seconds: 30
     chroma:
       host: localhost
       port: 8000

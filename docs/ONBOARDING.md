@@ -103,7 +103,7 @@ User Input → Prompt 构建 → LLM 调用 → 响应解析
 
 | 文件 | 职责 |
 |------|------|
-| `Text2VecEmbeddingModel.java` | 实现 LC4j `EmbeddingModel`，管理 Python sidecar 进程（启动/健康检查/编码/销毁） |
+| `Text2VecEmbeddingModel.java` | 实现 LC4j `EmbeddingModel`，通过 HTTP 连接用户自管的 Python sidecar |
 | `PolicyRagService.java` | 检索编排: 向量化查询 → Chroma 搜索 → 结果格式化 |
 | `DocumentIndexService.java` | 使用 `EmbeddingStoreIngestor` 构建索引：加载文档 → 分段 → 向量化 → 存入 Chroma |
 | `ResultFormatter.java` | 将 `EmbeddingMatch` 列表格式化为 LLM 可读的政策条款文本 |
@@ -246,7 +246,7 @@ User Input → Prompt 构建 → LLM 调用 → 响应解析
 | `ProductSearchTool.java` | moderate | 动态 SQL 拼接 + 参数化查询 (防注入) |
 | `Sidebar.tsx` | moderate | 105 行前端最复杂组件，会话 CRUD + 状态联动 |
 | `InputBar.tsx` | moderate | 83 行多行输入 + Enter 发送 + SSE 集成 |
-| `Text2VecEmbeddingModel.java` | moderate | Python sidecar 生命周期管理 + 进程通信 |
+| `Text2VecEmbeddingModel.java` | low | HTTP 调用用户自管的 Python sidecar，无进程管理 |
 | `PolicyRagService.java` | moderate | 向量化 → Chroma 检索 → 结果格式化全流程编排 |
 
 ---
