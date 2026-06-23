@@ -1,6 +1,7 @@
 package com.shopai.agent.web;
 
 import com.shopai.agent.rag.DocumentIndexService;
+import com.shopai.agent.rag.ParentChunkStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,13 +26,16 @@ public class PolicyController {
     private static final Logger log = LoggerFactory.getLogger(PolicyController.class);
 
     private final DocumentIndexService indexService;
+    private final ParentChunkStore parentStore;
     private final Path policiesPath;
 
     public PolicyController(
         DocumentIndexService indexService,
+        ParentChunkStore parentStore,
         @Value("${shopai.rag.policies-dir:policies/}") String policiesDir
     ) {
         this.indexService = indexService;
+        this.parentStore = parentStore;
         String resourcePath = getClass().getClassLoader().getResource("").getPath();
         if (resourcePath.startsWith("/")) {
             resourcePath = resourcePath.substring(1);
@@ -43,8 +47,9 @@ public class PolicyController {
     public ResponseEntity<Map<String, Object>> upload(@RequestParam("file") MultipartFile file) {
         try {
             String filename = file.getOriginalFilename();
-            if (filename == null || (!filename.endsWith(".md") && !filename.endsWith(".txt"))) {
-                return ResponseEntity.badRequest().body(Map.of("error", "仅支持 .md / .txt 文件"));
+            if (filename == null || !DocumentIndexService.isAllowedExtension(filename)) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                    "不支持的文件格式。支持: .md, .txt, .pdf, .docx, .doc, .pptx, .xlsx"));
             }
 
             Files.createDirectories(policiesPath);
@@ -71,12 +76,17 @@ public class PolicyController {
     @GetMapping("/documents")
     public ResponseEntity<List<Map<String, Object>>> listDocuments() {
         List<Map<String, Object>> docs = new ArrayList<>();
-        File[] files = policiesPath.toFile().listFiles((dir, name) -> name.endsWith(".md") || name.endsWith(".txt"));
+        File[] files = policiesPath.toFile().listFiles((dir, name) ->
+            DocumentIndexService.isAllowedExtension(name)
+        );
         if (files != null) {
             for (File f : files) {
+                String name = f.getName();
+                String type = name.substring(name.lastIndexOf('.') + 1).toLowerCase();
                 docs.add(Map.of(
-                    "id", f.getName(),
-                    "name", f.getName(),
+                    "id", name,
+                    "name", name,
+                    "type", type,
                     "size", f.length(),
                     "updatedAt", new Date(f.lastModified()).toString()
                 ));
@@ -94,8 +104,9 @@ public class PolicyController {
             }
             boolean deleted = Files.deleteIfExists(file);
             if (deleted) {
-                log.info("Document deleted: {}, removing from index...", id);
+                log.info("Document deleted: {}, removing from index and parent store...", id);
                 indexService.removeDocument(id);
+                parentStore.removeBySource(id);
                 return ResponseEntity.ok(Map.of(
                     "status", "ok",
                     "message", "删除成功，已从索引中移除（不影响其他文档）"

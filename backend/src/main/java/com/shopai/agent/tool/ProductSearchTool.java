@@ -2,6 +2,8 @@ package com.shopai.agent.tool;
 
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +13,8 @@ import java.util.Map;
 
 @Component
 public class ProductSearchTool {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductSearchTool.class);
 
     private final JdbcTemplate jdbc;
 
@@ -24,6 +28,9 @@ public class ProductSearchTool {
         @P("分类: phone/computer/accessory，可选") String category,
         @P("最低价格，可选") Double minPrice,
         @P("最高价格，可选") Double maxPrice) {
+
+        log.info("[ProductSearch] 参数: keyword={}, category={}, minPrice={}, maxPrice={}",
+            keyword, category, minPrice, maxPrice);
 
         StringBuilder sql = new StringBuilder(
             "SELECT name, category, price, stock, description FROM product WHERE 1=1"
@@ -55,9 +62,11 @@ public class ProductSearchTool {
         );
 
         if (results.isEmpty()) {
+            log.info("[ProductSearch] 结果: 无匹配产品");
             return "未找到匹配的产品";
         }
 
+        log.info("[ProductSearch] 结果: {} 个产品", results.size());
         StringBuilder sb = new StringBuilder();
         for (var r : results) {
             sb.append(String.format(

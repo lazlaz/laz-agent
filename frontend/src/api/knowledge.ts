@@ -3,6 +3,7 @@ const BASE = '/api/knowledge';
 export interface KnowledgeDocument {
   id: string;
   name: string;
+  type: string;
   size: number;
   updatedAt: string;
 }

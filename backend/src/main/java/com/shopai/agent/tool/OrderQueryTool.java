@@ -2,6 +2,8 @@ package com.shopai.agent.tool;
 
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -10,6 +12,8 @@ import java.util.Map;
 
 @Component
 public class OrderQueryTool {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderQueryTool.class);
 
     private final JdbcTemplate jdbc;
 
@@ -21,6 +25,8 @@ public class OrderQueryTool {
     public String queryOrders(
         @P("订单号，如 20240611001，可选") String orderNo,
         @P("客户姓名，可选") String customerName) {
+
+        log.info("[OrderQuery] 参数: orderNo={}, customerName={}", orderNo, customerName);
 
         List<Map<String, Object>> orders;
         if (orderNo != null && !orderNo.isBlank()) {
@@ -38,9 +44,11 @@ public class OrderQueryTool {
         }
 
         if (orders.isEmpty()) {
+            log.info("[OrderQuery] 结果: 无匹配订单");
             return "未找到相关订单";
         }
 
+        log.info("[OrderQuery] 结果: {} 条订单", orders.size());
         StringBuilder sb = new StringBuilder();
         for (var o : orders) {
             sb.append(String.format(

@@ -3,6 +3,10 @@ package com.shopai.agent.config;
 import com.shopai.agent.engine.ShopAiAgent;
 import com.shopai.agent.llm.LangChain4jAdapter;
 import com.shopai.agent.memory.H2MemoryManager;
+import com.shopai.agent.rag.ImageDescriptionService;
+import com.shopai.agent.rag.ParentChildChunker;
+import com.shopai.agent.rag.ParentChunkStore;
+import com.shopai.agent.rag.TableExtractor;
 import com.shopai.agent.tool.CalculatorTool;
 import com.shopai.agent.tool.OrderQueryTool;
 import com.shopai.agent.tool.PolicyQueryTool;
@@ -56,6 +60,18 @@ public class AgentConfig {
     @Value("${shopai.rag.chroma.collection}")
     private String chromaCollection;
 
+    @Value("${shopai.rag.chunking.parent.max-segment-size:1500}")
+    private int parentChunkSize;
+
+    @Value("${shopai.rag.chunking.parent.max-overlap-size:200}")
+    private int parentChunkOverlap;
+
+    @Value("${shopai.rag.chunking.child.max-segment-size:500}")
+    private int childChunkSize;
+
+    @Value("${shopai.rag.chunking.child.max-overlap-size:50}")
+    private int childChunkOverlap;
+
     // ── OpenTelemetry tracing ────────────────────────────────────────
 
     @Bean
@@ -88,6 +104,24 @@ public class AgentConfig {
             .baseUrl("http://" + chromaHost + ":" + chromaPort)
             .collectionName(chromaCollection)
             .build();
+    }
+
+    // ── RAG: parent-child chunking ────────────────────────────────────
+
+    @Bean
+    public ParentChunkStore parentChunkStore() {
+        return new ParentChunkStore();
+    }
+
+    @Bean
+    public ParentChildChunker parentChildChunker() {
+        return new ParentChildChunker(parentChunkSize, parentChunkOverlap,
+            childChunkSize, childChunkOverlap);
+    }
+
+    @Bean
+    public TableExtractor tableExtractor() {
+        return new TableExtractor();
     }
 
     @Bean

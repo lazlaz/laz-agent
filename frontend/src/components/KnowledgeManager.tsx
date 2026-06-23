@@ -37,6 +37,21 @@ export default function KnowledgeManager() {
     await loadDocuments();
   };
 
+  const fileTypeBadge = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'pdf': return 'bg-red-100 text-red-700';
+      case 'docx':
+      case 'doc': return 'bg-blue-100 text-blue-700';
+      case 'pptx':
+      case 'ppt': return 'bg-orange-100 text-orange-700';
+      case 'xlsx':
+      case 'xls': return 'bg-green-100 text-green-700';
+      case 'md': return 'bg-purple-100 text-purple-700';
+      case 'txt': return 'bg-gray-100 text-gray-600';
+      default: return 'bg-gray-100 text-gray-500';
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* 顶部栏 */}
@@ -61,7 +76,7 @@ export default function KnowledgeManager() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".md,.txt"
+            accept=".md,.txt,.pdf,.docx,.doc,.pptx,.xlsx"
             className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 file:rounded"
           />
           <button
@@ -72,7 +87,7 @@ export default function KnowledgeManager() {
             {uploading ? '上传中...' : '上传'}
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-2">支持 .md / .txt 格式</p>
+        <p className="text-xs text-gray-400 mt-2">支持 .md / .txt / .pdf / .docx / .doc / .pptx / .xlsx 格式</p>
       </div>
 
       {/* 文档列表 */}
@@ -97,6 +112,7 @@ export default function KnowledgeManager() {
             <thead>
               <tr className="text-left text-gray-500 border-b">
                 <th className="pb-2 font-medium">文档名</th>
+                <th className="pb-2 font-medium">类型</th>
                 <th className="pb-2 font-medium">大小</th>
                 <th className="pb-2 font-medium">更新时间</th>
                 <th className="pb-2 font-medium">操作</th>
@@ -106,6 +122,11 @@ export default function KnowledgeManager() {
               {documents.map((doc) => (
                 <tr key={doc.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="py-2.5 text-gray-800 font-medium">{doc.name}</td>
+                  <td className="py-2.5">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${fileTypeBadge(doc.type)}`}>
+                      {doc.type?.toUpperCase() || '—'}
+                    </span>
+                  </td>
                   <td className="py-2.5 text-gray-500">{(doc.size / 1024).toFixed(1)} KB</td>
                   <td className="py-2.5 text-gray-500">{doc.updatedAt}</td>
                   <td className="py-2.5">

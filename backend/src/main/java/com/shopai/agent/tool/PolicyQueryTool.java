@@ -3,10 +3,14 @@ package com.shopai.agent.tool;
 import com.shopai.agent.rag.PolicyRagService;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class PolicyQueryTool {
+
+    private static final Logger log = LoggerFactory.getLogger(PolicyQueryTool.class);
 
     private final PolicyRagService ragService;
 
@@ -20,6 +24,9 @@ public class PolicyQueryTool {
     public String queryPolicy(
         @P("用户完整的问题描述，保留所有细节以便精准检索") String question
     ) {
-        return ragService.query(question);
+        log.info("[PolicyQuery] 查询: {}", question);
+        String result = ragService.query(question);
+        log.info("[PolicyQuery] 结果: {} chars", result != null ? result.length() : 0);
+        return result;
     }
 }

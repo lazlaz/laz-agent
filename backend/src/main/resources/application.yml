@@ -36,6 +36,27 @@ shopai:
       top-k: 3
       min-score: 0.5
     policies-dir: policies/
+    chunking:
+      parent:
+        max-segment-size: 1500
+        max-overlap-size: 200
+      child:
+        max-segment-size: 500
+        max-overlap-size: 50
+    vision:
+      enabled: false
+      api-key: ${DEEPSEEK_API_KEY}
+      base-url: https://api.deepseek.com/v1
+      model: deepseek-v2.5-vision
+      max-image-size-kb: 1024
+      max-pages-to-analyze: 10
+    supported-extensions: .md,.txt,.pdf,.docx,.doc,.pptx,.xlsx
+    query-expansion:
+      enabled: true
+      num-variants: 3
+    hybrid-search:
+      enabled: true
+      rrf-k: 60
   langfuse:
     host: https://jp.cloud.langfuse.com
 
@@ -46,7 +67,14 @@ management:
 
 logging:
   level:
-    dev.langchain4j: DEBUG
-    com.shopai.agent.tracing: DEBUG
-    io.opentelemetry: DEBUG
-    io.opentelemetry.exporter: DEBUG
+    # ── 关键日志（Tool 调用 / RAG 检索 / 索引操作） ──
+    com.shopai.agent.tool: INFO
+    com.shopai.agent.rag: INFO
+    com.shopai.agent.web: INFO
+    com.shopai.agent.config: INFO
+    # ── 抑制噪音 ──
+    dev.langchain4j: WARN
+    com.shopai.agent.tracing: WARN
+    io.opentelemetry: WARN
+    io.opentelemetry.exporter: WARN
+    org.springframework: WARN
