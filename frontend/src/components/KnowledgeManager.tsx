@@ -43,7 +43,7 @@ export default function KnowledgeManager() {
       <div className="bg-white border-b px-6 py-4">
         <h1 className="text-xl font-bold text-gray-800">知识库管理</h1>
         <p className="text-sm text-gray-500 mt-1">
-          管理售后政策文档，上传后需重建索引才能生效
+          管理售后政策文档，上传/删除自动增量索引，无需手动重建
         </p>
       </div>
 

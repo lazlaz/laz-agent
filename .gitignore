@@ -1,6 +1,7 @@
 # Maven
 backend/target/
 backend/data/
+backend/src/main/resources/application-local.yml
 
 # Node
 frontend/node_modules/
@@ -20,6 +21,7 @@ Thumbs.db
 .understand-anything/
 .claude/
 data/
+
 
 # Sensitive config (local keys)
 **/application-local.yml__pycache__/

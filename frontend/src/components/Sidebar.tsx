@@ -97,7 +97,7 @@ export default function Sidebar({ onNavigateKnowledge }: Props) {
                 className="ml-2 text-gray-400 hover:text-red-500 text-xs opacity-0 hover:opacity-100 transition-opacity"
                 title="删除会话"
               >
-                ？
+                🗑
               </button>
             </div>
             <span className="text-xs text-gray-400">{s.createdAt?.substring(0, 10)}</span>

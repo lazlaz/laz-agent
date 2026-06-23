@@ -22,9 +22,15 @@ public class SessionController {
 
     @GetMapping
     public List<Map<String, Object>> listSessions() {
-        return jdbc.queryForList(
-            "SELECT session_id, title, created_at FROM conversation ORDER BY created_at DESC"
-        );
+        // Deduplicate by session_id — keeps the earliest row for each session.
+        // H2 supports ROW_NUMBER() window function.
+        return jdbc.queryForList("""
+            SELECT session_id, title, created_at FROM (
+                SELECT session_id, title, created_at,
+                       ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY created_at ASC) AS rn
+                FROM conversation
+            ) WHERE rn = 1 ORDER BY created_at DESC
+            """);
     }
 
     @GetMapping("/{sessionId}/messages")

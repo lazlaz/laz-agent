@@ -159,11 +159,22 @@ public class H2MemoryManager implements ChatMemoryStore {
             insertMessage(sessionId, messages.get(i), base.plusNanos(i));
         }
 
-        // Ensure conversation record exists
-        jdbc.update(
-            "MERGE INTO conversation (id, session_id, title) VALUES (?, ?, ?)",
-            UUID.randomUUID().toString(), sessionId, "会话 " + sessionId.substring(0, Math.min(8, sessionId.length()))
-        );
+        // Ensure conversation record exists and set a meaningful title.
+        // Only update the title once: from "新会话" → first user message.
+        // Subsequent calls leave the title untouched.
+        String title = extractTitle(messages);
+        boolean exists = Boolean.TRUE.equals(
+            jdbc.queryForObject("SELECT COUNT(*) > 0 FROM conversation WHERE session_id = ?",
+                                 Boolean.class, sessionId));
+        if (!exists) {
+            jdbc.update(
+                "INSERT INTO conversation (id, session_id, title) VALUES (?, ?, ?)",
+                UUID.randomUUID().toString(), sessionId, title);
+        } else {
+            jdbc.update(
+                "UPDATE conversation SET title = ? WHERE session_id = ? AND title = '新会话'",
+                title, sessionId);
+        }
     }
 
     @Override
@@ -227,6 +238,22 @@ public class H2MemoryManager implements ChatMemoryStore {
             toolRequestId,
             Timestamp.from(createdAt)
         );
+    }
+
+    /**
+     * Extracts a conversation title from the first USER message in the list.
+     * Caps at 40 characters to keep the sidebar tidy.
+     */
+    private String extractTitle(List<ChatMessage> messages) {
+        for (ChatMessage msg : messages) {
+            if (msg instanceof UserMessage userMsg) {
+                String text = userMsg.singleText();
+                if (text != null && !text.isBlank()) {
+                    return text.length() > 40 ? text.substring(0, 40) + "…" : text;
+                }
+            }
+        }
+        return "新会话";
     }
 
 }

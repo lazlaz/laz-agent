@@ -33,6 +33,9 @@ public class PolicyController {
     ) {
         this.indexService = indexService;
         String resourcePath = getClass().getClassLoader().getResource("").getPath();
+        if (resourcePath.startsWith("/")) {
+            resourcePath = resourcePath.substring(1);
+        }
         this.policiesPath = Paths.get(resourcePath, policiesDir).normalize();
     }
 
@@ -51,11 +54,13 @@ public class PolicyController {
             }
             file.transferTo(dest.toFile());
 
-            log.info("Document uploaded: {}", filename);
+            log.info("Document uploaded: {}, indexing incrementally...", filename);
+            indexService.indexDocument(dest);
+            log.info("Incremental indexing complete");
             return ResponseEntity.ok(Map.of(
                 "status", "ok",
                 "filename", filename,
-                "message", "上传成功，请重建索引以生效"
+                "message", "上传成功，已增量索引（不影响已有文档）"
             ));
         } catch (IOException e) {
             log.error("Upload failed", e);
@@ -89,8 +94,12 @@ public class PolicyController {
             }
             boolean deleted = Files.deleteIfExists(file);
             if (deleted) {
-                log.info("Document deleted: {}", id);
-                return ResponseEntity.ok(Map.of("status", "ok", "message", "删除成功，请重建索引以生效"));
+                log.info("Document deleted: {}, removing from index...", id);
+                indexService.removeDocument(id);
+                return ResponseEntity.ok(Map.of(
+                    "status", "ok",
+                    "message", "删除成功，已从索引中移除（不影响其他文档）"
+                ));
             }
             return ResponseEntity.notFound().build();
         } catch (IOException e) {

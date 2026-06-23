@@ -15,6 +15,7 @@ import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.embedding.EmbeddingStore;
+import dev.langchain4j.store.embedding.chroma.ChromaApiVersion;
 import dev.langchain4j.store.embedding.chroma.ChromaEmbeddingStore;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import io.opentelemetry.api.trace.Tracer;
@@ -83,6 +84,7 @@ public class AgentConfig {
     @Bean
     public EmbeddingStore<TextSegment> embeddingStore() {
         return ChromaEmbeddingStore.builder()
+            .apiVersion(ChromaApiVersion.V2)
             .baseUrl("http://" + chromaHost + ":" + chromaPort)
             .collectionName(chromaCollection)
             .build();
@@ -91,6 +93,7 @@ public class AgentConfig {
     @Bean
     public ChatMemoryProvider chatMemoryProvider(ChatMemoryStore store) {
         return memoryId -> MessageWindowChatMemory.builder()
+            .id(memoryId)
             .chatMemoryStore(store)
             .maxMessages(maxHistoryMessages)
             .build();

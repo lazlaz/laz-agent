@@ -39,6 +39,12 @@ public class Text2VecEmbeddingModel implements EmbeddingModel {
     }
 
     @Override
+    public Response<Embedding> embed(String text) {
+        Response<List<Embedding>> response = embedTexts(List.of(text));
+        return Response.from(response.content().get(0));
+    }
+
+    @Override
     public Response<List<Embedding>> embedAll(List<TextSegment> segments) {
         List<String> texts = segments.stream().map(TextSegment::text).toList();
         return embedTexts(texts);

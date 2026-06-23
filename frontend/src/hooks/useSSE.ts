@@ -1,9 +1,25 @@
 import { useEffect, useRef } from 'react';
 import { useChatStore } from '../store/chatStore';
+import { fetchSessions } from '../api/chat';
+import type { Conversation } from '../types';
 
 export function useSSE() {
-  const { addMessage, setIsStreaming } = useChatStore();
+  const { addMessage, setIsStreaming, setSessions } = useChatStore();
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  const refreshSessions = async () => {
+    try {
+      const data = await fetchSessions();
+      const convs: Conversation[] = data.map((d) => ({
+        sessionId: d.SESSION_ID,
+        title: d.TITLE,
+        createdAt: d.CREATED_AT,
+      }));
+      setSessions(convs);
+    } catch {
+      // Silently ignore — session list refresh is best-effort
+    }
+  };
 
   const connect = (streamUrl: string) => {
     disconnect();
@@ -28,6 +44,7 @@ export function useSSE() {
     es.addEventListener('done', () => {
       setIsStreaming(false);
       es.close();
+      refreshSessions();
     });
 
     es.addEventListener('error', () => {
