@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { fetchSessions } from '../api/chat';
-import type { Conversation } from '../types';
+import type { Conversation, PlanStepData } from '../types';
 
 export function useSSE() {
   const { addMessage, setIsStreaming, setSessions } = useChatStore();
@@ -36,16 +36,69 @@ export function useSSE() {
       content: '',
     });
 
+    // ── ReAct mode: token streaming ─────────────────────────────────
+
     es.addEventListener('token', (e: MessageEvent) => {
       const token = e.data as string;
       useChatStore.getState().updateLastAssistant((prev) => prev + token);
     });
+
+    // ── Done (shared by both modes) ─────────────────────────────────
 
     es.addEventListener('done', () => {
       setIsStreaming(false);
       es.close();
       refreshSessions();
     });
+
+    // ── Plan-Execute: planning phase ─────────────────────────────────
+
+    es.addEventListener('plan_start', () => {
+      useChatStore.getState().setPlanPhase('planning');
+      useChatStore.getState().clearSteps();
+    });
+
+    es.addEventListener('plan', (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      const steps: PlanStepData[] = data.steps || [];
+      useChatStore.getState().setPlanSteps(steps);
+      useChatStore.getState().setPlanPhase('executing');
+    });
+
+    // ── Plan-Execute: step execution ─────────────────────────────────
+
+    es.addEventListener('step_start', (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      useChatStore.getState().setActiveStepIndex(data.stepIndex);
+      useChatStore.getState().addStep({
+        iteration: data.stepIndex,
+        type: data.type === 'tool_call' ? 'TOOL_CALL' : 'THOUGHT',
+        thought: data.description,
+        toolName: data.tool || undefined,
+        arguments: data.args,
+      });
+    });
+
+    es.addEventListener('step', (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      useChatStore.getState().addStep({
+        iteration: data.stepIndex,
+        type: data.type === 'tool_call' ? 'TOOL_RESULT' : 'FINAL',
+        toolName: data.tool || undefined,
+        result: {
+          success: data.success,
+          content: data.output,
+        },
+      });
+    });
+
+    // ── Plan-Execute: synthesis phase ────────────────────────────────
+
+    es.addEventListener('synthesis', () => {
+      useChatStore.getState().setPlanPhase('synthesizing');
+    });
+
+    // ── Error ───────────────────────────────────────────────────────
 
     es.addEventListener('error', () => {
       setIsStreaming(false);

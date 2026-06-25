@@ -1,10 +1,14 @@
 const BASE = '/api';
 
-export async function sendMessage(sessionId: string, message: string): Promise<{ messageId: string; streamUrl: string }> {
+export async function sendMessage(
+  sessionId: string,
+  message: string,
+  mode: 'react' | 'plan-execute' = 'react'
+): Promise<{ messageId: string; streamUrl: string }> {
   const res = await fetch(`${BASE}/chat/send`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, message }),
+    body: JSON.stringify({ sessionId, message, mode }),
   });
   if (!res.ok) throw new Error(`Send failed: ${res.status}`);
   return res.json();

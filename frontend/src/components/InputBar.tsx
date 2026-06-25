@@ -2,14 +2,17 @@ import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { sendMessage } from '../api/chat';
 import { useSSE } from '../hooks/useSSE';
+import type { ExecutionMode } from '../types';
 
 export default function InputBar() {
   const [input, setInput] = useState('');
+  const [mode, setMode] = useState<ExecutionMode>('react');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const {
     currentSessionId,
     isStreaming,
     addMessage,
+    setExecutionMode,
   } = useChatStore();
   const { connect } = useSSE();
 
@@ -29,9 +32,10 @@ export default function InputBar() {
     });
 
     setInput('');
+    setExecutionMode(mode);
 
     try {
-      const { streamUrl } = await sendMessage(sessionId, trimmed);
+      const { streamUrl } = await sendMessage(sessionId, trimmed, mode);
       connect(streamUrl);
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -60,6 +64,16 @@ export default function InputBar() {
   return (
     <div className="border-t border-gray-200 bg-white px-4 py-3">
       <div className="flex items-end gap-2 max-w-3xl mx-auto">
+        <select
+          value={mode}
+          onChange={(e) => setMode(e.target.value as ExecutionMode)}
+          className="text-xs border border-gray-300 rounded-lg px-2 py-2.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={isStreaming}
+          title="执行模式"
+        >
+          <option value="react">ReAct</option>
+          <option value="plan-execute">Plan-Execute</option>
+        </select>
         <textarea
           ref={textareaRef}
           className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

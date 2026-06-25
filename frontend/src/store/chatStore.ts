@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Conversation, StepRecord } from '../types';
+import type { Conversation, ExecutionMode, PlanStepData, StepRecord } from '../types';
 
 export interface ChatMessage {
   id: string;
@@ -29,6 +29,16 @@ interface ChatState {
   currentSteps: StepRecord[];
   addStep: (step: StepRecord) => void;
   clearSteps: () => void;
+
+  // Plan-Execute state
+  executionMode: ExecutionMode;
+  setExecutionMode: (mode: ExecutionMode) => void;
+  planSteps: PlanStepData[];
+  setPlanSteps: (steps: PlanStepData[]) => void;
+  planPhase: 'idle' | 'planning' | 'executing' | 'synthesizing';
+  setPlanPhase: (phase: 'idle' | 'planning' | 'executing' | 'synthesizing') => void;
+  activeStepIndex: number;
+  setActiveStepIndex: (idx: number) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -58,4 +68,14 @@ export const useChatStore = create<ChatState>((set) => ({
   currentSteps: [],
   addStep: (step) => set((s) => ({ currentSteps: [...s.currentSteps, step] })),
   clearSteps: () => set({ currentSteps: [] }),
+
+  // Plan-Execute state
+  executionMode: 'react',
+  setExecutionMode: (mode) => set({ executionMode: mode }),
+  planSteps: [],
+  setPlanSteps: (steps) => set({ planSteps: steps }),
+  planPhase: 'idle',
+  setPlanPhase: (phase) => set({ planPhase: phase }),
+  activeStepIndex: -1,
+  setActiveStepIndex: (idx) => set({ activeStepIndex: idx }),
 }));

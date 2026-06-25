@@ -44,6 +44,28 @@ export interface SSEStepEvent {
   result?: { success: boolean; content: string };
 }
 
+// ── Plan-Execute types ──────────────────────────────────────────────
+
+export interface PlanStepData {
+  index: number;
+  type: 'tool_call' | 'reasoning';
+  description: string;
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+export interface StepResultData {
+  stepIndex: number;
+  type: string;
+  tool: string;
+  output: string;
+  success: boolean;
+}
+
+export type ExecutionMode = 'react' | 'plan-execute';
+
+// ── Conversation ────────────────────────────────────────────────────
+
 export interface Conversation {
   sessionId: string;
   title: string;

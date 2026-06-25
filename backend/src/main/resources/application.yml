@@ -24,6 +24,15 @@ shopai:
   agent:
     max-iterations: 10
     max-history-messages: 20
+    # Memory mode: "window" (sliding window) or "summarizing" (auto-summarize older messages)
+    memory:
+      mode: summarizing
+      summarizing:
+        max-messages-before-summary: 15
+        keep-recent-count: 10
+    # Plan-Execute engine configuration
+    plan-execute:
+      max-steps: 10
   rag:
     embedding:
       sidecar-host: 127.0.0.1

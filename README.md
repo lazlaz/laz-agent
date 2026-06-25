@@ -49,6 +49,31 @@ User Input → Prompt 构建 → LLM 调用 → 响应解析
                               循环迭代（max 10 次）
 ```
 
+### Agent 执行流程（Plan-Execute 模式）
+
+```
+User Input → PLANNING (LLM 生成执行计划 JSON)
+                  │
+                  ▼  [step_start / step SSE 事件]
+            EXECUTION (逐步执行: 工具调用 + 推理)
+                  │
+                  ▼  [token / done SSE 事件]
+            SYNTHESIS (流式汇总生成最终答案)
+```
+
+前端提供模式切换下拉框（ReAct / Plan-Execute），后端通过 `mode` 参数路由。
+详细 SSE 事件：`plan_start` → `plan` → `step_start` → `step` → `synthesis` → `token` → `done`
+
+### 记忆管理
+
+- **窗口模式** (`window`, 默认)：简单滑动窗口，最近 20 条消息
+- **摘要模式** (`summarizing`)：超过阈值自动 LLM 摘要旧消息，保留最近 10 条 + 摘要
+
+通过 `application.yml` 切换：
+```yaml
+shopai.agent.memory.mode: summarizing  # window | summarizing
+```
+
 ## 项目结构
 
 ```
@@ -65,49 +90,48 @@ my-agent-one/
 │   └── src/
 │       ├── main/java/com/shopai/agent/
 │       │   ├── ShopAiApplication.java          # 启动入口
-│       │   ├── domain/                          # 领域模型（15 个 record/enum）
-│       │   │   ├── Message.java, Role.java, AgentRequest.java, AgentResponse.java
-│       │   │   ├── ToolDefinition.java, ToolCall.java, ToolResult.java
-│       │   │   ├── LlmResponse.java, DecisionType.java, TokenUsage.java
-│       │   │   └── StepType.java, StepRecord.java, ChatRequest.java
 │       │   ├── llm/
-│       │   │   ├── LlmAdapter.java              # LLM 适配器接口
-│       │   │   └── LangChain4jAdapter.java      # LangChain4j 实现
-│       │   ├── prompt/
-│       │   │   ├── PromptEngine.java            # Prompt 引擎接口
-│       │   │   └── MustachePromptEngine.java    # Mustache 实现
+│       │   │   └── LangChain4jAdapter.java      # LLM 适配器（同步 + 流式）
 │       │   ├── memory/
-│       │   │   ├── MemoryManager.java           # 记忆管理器接口
-│       │   │   └── H2MemoryManager.java         # H2 实现
+│       │   │   ├── H2MemoryManager.java         # H2 持久化记忆（ChatMemoryStore）
+│       │   │   └── SummarizingMemoryProvider.java  # 摘要记忆（超窗口自动摘要）
 │       │   ├── tool/
-│       │   │   ├── ToolRegistry.java            # 工具注册表接口
-│       │   │   ├── DefaultToolRegistry.java     # 基于 ConcurrentHashMap 实现
-│       │   │   ├── OrderQueryTool.java          # 订单查询工具
-│       │   │   ├── ProductSearchTool.java       # 产品搜索工具
-│       │   │   └── CalculatorTool.java          # 计算器工具
+│       │   │   ├── OrderQueryTool.java          # 订单查询工具 @Tool
+│       │   │   ├── ProductSearchTool.java       # 产品搜索工具 @Tool
+│       │   │   ├── CalculatorTool.java          # 计算器工具 @Tool
+│       │   │   └── PolicyQueryTool.java         # RAG 知识库检索 @Tool
 │       │   ├── engine/
-│       │   │   ├── AgentEngine.java             # Agent 引擎接口
-│       │   │   ├── ReActAgentEngine.java        # ReAct 循环实现
-│       │   │   └── LlmResponseParser.java       # LLM 响应解析器
+│       │   │   ├── ShopAiAgent.java             # AiServices Agent 接口（ReAct）
+│       │   │   ├── ReActAgentEngine.java        # ReAct 流式引擎
+│       │   │   ├── ToolRegistry.java            # 反射工具注册表（Plan-Execute）
+│       │   │   ├── PlanExecuteEngine.java       # Plan-Execute 三阶段引擎
+│       │   │   ├── ExecutionPlan.java           # 执行计划 record
+│       │   │   ├── PlanStep.java                # 计划步骤 record
+│       │   │   ├── StepResult.java              # 步骤执行结果 record
+│       │   │   └── PlanExecuteEvent.java        # SSE 事件 sealed interface
+│       │   ├── rag/                             # RAG 管道
+│       │   │   ├── PolicyRagService.java        # RAG 检索编排
+│       │   │   ├── DocumentIndexService.java    # 文档索引构建
+│       │   │   ├── ParentChildChunker.java      # 父子分块
+│       │   │   ├── ParentChunkStore.java        # 父块存储
+│       │   │   └── Text2VecEmbeddingModel.java   # Embedding 模型适配
 │       │   ├── web/
-│       │   │   ├── ChatController.java          # 对话 API（REST + SSE）
-│       │   │   └── SessionController.java       # 会话 CRUD API
+│       │   │   ├── ChatController.java          # 对话 API（REST + SSE，双模式路由）
+│       │   │   ├── SessionController.java       # 会话 CRUD API
+│       │   │   └── PolicyController.java        # 知识库管理 API
+│       │   ├── tracing/                         # 可观测性
+│       │   │   ├── OpenTelemetryConfig.java     # OTel SDK 配置
+│       │   │   └── OtelChatModelListener.java   # LLM 调用追踪
 │       │   └── config/
 │       │       ├── AgentConfig.java             # Spring Bean 装配
 │       │       └── DataInitializer.java         # 启动时注入模拟数据
 │       ├── main/resources/
 │       │   ├── application.yml                   # 应用配置
 │       │   ├── schema.sql                        # H2 DDL（5 张表）
-│       │   ├── data/
-│       │   │   ├── products.json                  # 10 条模拟产品
-│       │   │   └── orders.json                    # 5 条模拟订单
-│       │   └── prompts/
-│       │       ├── react-system.mustache          # ReAct 系统 Prompt 模板
-│       │       └── tool-result.mustache           # 工具结果注入模板
+│       │   └── data/
+│       │       ├── products.json                  # 10 条模拟产品
+│       │       └── orders.json                    # 5 条模拟订单
 │       └── test/java/com/shopai/agent/
-│           ├── tool/ToolRegistryTest.java
-│           ├── engine/ReActAgentEngineTest.java
-│           └── web/ChatControllerTest.java
 │
 └── frontend/
     ├── package.json
@@ -324,8 +348,10 @@ JDBC URL: `jdbc:h2:file:./data/shopai`
 - [x] 知识库检索工具（PolicyQueryTool + PolicyRagService）
 - [x] 文档索引管理（DocumentIndexService + EmbeddingStoreIngestor）
 - [x] 知识库管理页面（上传/删除/重建索引）
+- [x] 父子分块检索 + PDF/Word 文档支持
+- [x] **Plan-and-Execute 双模式引擎**（Planning → Execution → Synthesis）
+- [x] **多轮对话上下文优化**（SummarizingMemoryProvider — 超窗口自动摘要）
 - [ ] 工具数量扩展（退款、售后、物流追踪）
-- [ ] 多轮对话上下文优化
 
 ### Phase 3: 生产化 （计划中）
 - [ ] Docker 容器化
@@ -340,9 +366,11 @@ JDBC URL: `jdbc:h2:file:./data/shopai`
 
 | JD 要求 | 对应实践 |
 |---------|---------|
-| Agent 核心模块开发 | ReActAgentEngine — THOUGHT/TOOL_CALL/FINAL 循环 |
+| Agent 核心模块开发 | ReActAgentEngine + **PlanExecuteEngine** — ReAct / Plan-Execute 双模式 |
 | AI 能力集成 | LangChain4jAdapter — 统一 LLM 调用接口，支持模型切换 |
-| RAG 与知识库 | Chroma + BAAI/bge-small-zh-v1.5 + PolicyRagService + LangChain4j RAG API |
-| 工具生态建设 | ToolRegistry + 3 个工具（JSON Schema 参数 + Function Handler）|
-| 性能与稳定性 | Token 统计、延迟追踪、错误处理 |
-| 工程能力 | Spring Boot + H2 + SSE + React + TypeScript + 测试体系 |
+| RAG 与知识库 | Chroma + BAAI/bge-small-zh-v1.5 + PolicyRagService + 父子分块 |
+| 工具生态建设 | ToolRegistry + 4 个工具（LangChain4j @Tool + 反射注册双模式）|
+| **对话记忆管理** | **SummarizingMemoryProvider — 超窗口自动摘要 + 长期记忆** |
+| 可观测性 | OpenTelemetry + Langfuse 链路追踪 + Token 统计 |
+| 流式对话 | SSE Token 级流式输出 |
+| 工程能力 | Spring Boot + H2 + SSE + React + TypeScript |

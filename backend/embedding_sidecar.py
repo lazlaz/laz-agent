@@ -10,8 +10,10 @@ PORT = int(os.environ.get("PORT", "9876"))
 
 app = Flask(__name__)
 
-print(f"Loading model {MODEL_NAME} from {MODEL_PATH}...")
-model = SentenceTransformer(MODEL_NAME, cache_folder=MODEL_PATH)
+# 构建本地模型完整路径
+local_model_path = os.path.join(MODEL_PATH, MODEL_NAME.replace("/", os.sep))
+print(f"Loading model from: {local_model_path}")
+model = SentenceTransformer(local_model_path)
 print("Model loaded.")
 
 

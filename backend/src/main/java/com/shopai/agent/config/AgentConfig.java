@@ -1,9 +1,10 @@
 package com.shopai.agent.config;
 
 import com.shopai.agent.engine.ShopAiAgent;
+import com.shopai.agent.engine.ToolRegistry;
 import com.shopai.agent.llm.LangChain4jAdapter;
 import com.shopai.agent.memory.H2MemoryManager;
-import com.shopai.agent.rag.ImageDescriptionService;
+import com.shopai.agent.memory.SummarizingMemoryProvider;
 import com.shopai.agent.rag.ParentChildChunker;
 import com.shopai.agent.rag.ParentChunkStore;
 import com.shopai.agent.rag.TableExtractor;
@@ -15,6 +16,7 @@ import com.shopai.agent.tracing.OtelChatModelListener;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.service.AiServices;
@@ -50,6 +52,15 @@ public class AgentConfig {
 
     @Value("${shopai.agent.max-history-messages:20}")
     private int maxHistoryMessages;
+
+    @Value("${shopai.agent.memory.mode:window}")
+    private String memoryMode;
+
+    @Value("${shopai.agent.memory.summarizing.max-messages-before-summary:15}")
+    private int summaryMaxBefore;
+
+    @Value("${shopai.agent.memory.summarizing.keep-recent-count:10}")
+    private int summaryKeepRecent;
 
     @Value("${shopai.rag.chroma.host}")
     private String chromaHost;
@@ -93,6 +104,16 @@ public class AgentConfig {
     }
 
     @Bean
+    public ChatModel chatLanguageModel() {
+        return LangChain4jAdapter.createChatModel(
+            apiKey,
+            model,
+            baseUrl,
+            Duration.parse("PT" + timeout.replace("s", "S").replace("m", "M"))
+        );
+    }
+
+    @Bean
     public ChatMemoryStore chatMemoryStore(JdbcTemplate jdbc) {
         return new H2MemoryManager(jdbc);
     }
@@ -125,12 +146,30 @@ public class AgentConfig {
     }
 
     @Bean
-    public ChatMemoryProvider chatMemoryProvider(ChatMemoryStore store) {
+    public ChatMemoryProvider chatMemoryProvider(ChatMemoryStore store, ChatModel chatLanguageModel) {
+        if ("summarizing".equals(memoryMode)) {
+            return new SummarizingMemoryProvider(store, chatLanguageModel, summaryMaxBefore, summaryKeepRecent);
+        }
+        // Default: simple sliding window (existing behavior)
         return memoryId -> MessageWindowChatMemory.builder()
             .id(memoryId)
             .chatMemoryStore(store)
             .maxMessages(maxHistoryMessages)
             .build();
+    }
+
+    @Bean
+    public ToolRegistry toolRegistry(
+        ProductSearchTool productSearch,
+        OrderQueryTool orderQuery,
+        CalculatorTool calculator,
+        PolicyQueryTool policyQuery) {
+        ToolRegistry registry = new ToolRegistry();
+        registry.register(productSearch);
+        registry.register(orderQuery);
+        registry.register(calculator);
+        registry.register(policyQuery);
+        return registry;
     }
 
     @Bean

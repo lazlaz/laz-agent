@@ -1,3 +1,4 @@
+import { useChatStore } from '../store/chatStore';
 import type { ChatMessage } from '../store/chatStore';
 import AgentSteps from './AgentSteps';
 
@@ -8,6 +9,10 @@ interface Props {
 
 export default function MessageBubble({ message, isStreaming }: Props) {
   const isUser = message.role === 'user';
+  const executionMode = useChatStore((s) => s.executionMode);
+  const planSteps = useChatStore((s) => s.planSteps);
+  const planPhase = useChatStore((s) => s.planPhase);
+  const activeStepIndex = useChatStore((s) => s.activeStepIndex);
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -15,6 +20,9 @@ export default function MessageBubble({ message, isStreaming }: Props) {
         {!isUser && (
           <span className="text-xs text-gray-400 ml-1 mb-1 block">
             ShopAI Agent
+            {executionMode === 'plan-execute' && (
+              <span className="ml-1 text-blue-400">(Plan-Execute)</span>
+            )}
             {message.latencyMs != null && (
               <span className="ml-2 text-gray-300">{message.latencyMs}ms</span>
             )}
@@ -29,8 +37,15 @@ export default function MessageBubble({ message, isStreaming }: Props) {
         >
           {message.content}
         </div>
-        {message.steps && message.steps.length > 0 && (
-          <AgentSteps steps={message.steps} isStreaming={isStreaming ?? false} />
+        {(message.steps && message.steps.length > 0 || executionMode === 'plan-execute') && (
+          <AgentSteps
+            steps={message.steps || []}
+            isStreaming={isStreaming ?? false}
+            executionMode={executionMode}
+            planSteps={planSteps}
+            planPhase={planPhase}
+            activeStepIndex={activeStepIndex}
+          />
         )}
         {message.tokenUsage && (
           <div className="text-xs text-gray-300 mt-1 ml-1">
