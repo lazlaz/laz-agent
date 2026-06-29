@@ -23,27 +23,30 @@ public class LangChain4jAdapter {
      * where the caller needs a complete response before proceeding.
      */
     public static ChatModel createChatModel(
-        String apiKey, String modelName, String baseUrl, Duration timeout) {
-        return OpenAiChatModel.builder()
+        String apiKey, String modelName, String baseUrl, Duration timeout, Double temperature) {
+        var builder = OpenAiChatModel.builder()
             .apiKey(apiKey)
             .modelName(modelName)
             .baseUrl(baseUrl)
             .timeout(timeout)
             .httpClientBuilder(JdkHttpClient.builder())
             .logRequests(true)
-            .logResponses(true)
-            .build();
+            .logResponses(true);
+        if (temperature != null) {
+            builder.temperature(temperature);
+        }
+        return builder.build();
     }
 
     public static StreamingChatModel createStreamingModel(
-        String apiKey, String modelName, String baseUrl, Duration timeout) {
-        return createStreamingModel(apiKey, modelName, baseUrl, timeout, List.of());
+        String apiKey, String modelName, String baseUrl, Duration timeout, Double temperature) {
+        return createStreamingModel(apiKey, modelName, baseUrl, timeout, temperature, List.of());
     }
 
     public static StreamingChatModel createStreamingModel(
-        String apiKey, String modelName, String baseUrl, Duration timeout,
+        String apiKey, String modelName, String baseUrl, Duration timeout, Double temperature,
         List<ChatModelListener> listeners) {
-        return OpenAiStreamingChatModel.builder()
+        var builder = OpenAiStreamingChatModel.builder()
             .apiKey(apiKey)
             .modelName(modelName)
             .baseUrl(baseUrl)
@@ -51,7 +54,10 @@ public class LangChain4jAdapter {
             .httpClientBuilder(JdkHttpClient.builder())
             .listeners(listeners)
             .logRequests(true)
-            .logResponses(true)
-            .build();
+            .logResponses(true);
+        if (temperature != null) {
+            builder.temperature(temperature);
+        }
+        return builder.build();
     }
 }

@@ -1,0 +1,60 @@
+# ── Test profile ───────────────────────────────────────────────────
+# Activated via @ActiveProfiles("test") in test classes
+
+spring:
+  main:
+    allow-bean-definition-overriding: true  # TestConfig @Primary beans override AgentConfig beans
+  datasource:
+    url: jdbc:h2:mem:shopai_test;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: false
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+shopai:
+  llm:
+    provider: deepseek
+    api-key: ${DEEPSEEK_API_KEY}
+    model: deepseek-chat
+    base-url: https://api.deepseek.com/v1
+    timeout: 60s
+    temperature: 0.0                  # Deterministic for test reliability
+  agent:
+    max-iterations: 10
+    max-history-messages: 20
+    memory:
+      mode: window                    # Default simple; summarizing tested separately
+      summarizing:
+        max-messages-before-summary: 8  # Lower threshold for faster tests
+        keep-recent-count: 4
+    plan-execute:
+      max-steps: 5                    # Lower for faster tests
+  rag:
+    embedding:
+      sidecar-host: 127.0.0.1
+      sidecar-port: 9999              # Won't be used — mocked in tests via TestConfig
+    chroma:
+      host: localhost
+      port: 9999                      # Won't be used — ProgrammableEmbeddingStore takes over
+      collection: shopai_policies_test
+    retrieval:
+      top-k: 3
+      min-score: 0.0                  # Allow all results for test measurement
+  eval:
+    judge:
+      provider: ${EVAL_JUDGE_PROVIDER:deepseek}
+      api-key: ${EVAL_JUDGE_API_KEY:}
+      model: ${EVAL_JUDGE_MODEL:deepseek-v4-pro}
+      base-url: ${EVAL_JUDGE_BASE_URL:https://api.deepseek.com/v1}
+      timeout: 30s
+
+logging:
+  level:
+    com.shopai.agent: DEBUG
+    dev.langchain4j: WARN

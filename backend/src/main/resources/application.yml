@@ -21,6 +21,7 @@ shopai:
     model: deepseek-chat
     base-url: https://api.deepseek.com/v1
     timeout: 30s
+    temperature: 0   # 0.0 = deterministic, 1.0+ = creative (null to use model default)
   agent:
     max-iterations: 10
     max-history-messages: 20

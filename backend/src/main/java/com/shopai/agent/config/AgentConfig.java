@@ -28,6 +28,7 @@ import io.opentelemetry.api.trace.Tracer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -49,6 +50,9 @@ public class AgentConfig {
 
     @Value("${shopai.llm.timeout}")
     private String timeout;
+
+    @Value("${shopai.llm.temperature:#{null}}")
+    private Double temperature;
 
     @Value("${shopai.agent.max-history-messages:20}")
     private int maxHistoryMessages;
@@ -99,6 +103,7 @@ public class AgentConfig {
             model,
             baseUrl,
             Duration.parse("PT" + timeout.replace("s", "S").replace("m", "M")),
+            temperature,
             listeners
         );
     }
@@ -109,7 +114,8 @@ public class AgentConfig {
             apiKey,
             model,
             baseUrl,
-            Duration.parse("PT" + timeout.replace("s", "S").replace("m", "M"))
+            Duration.parse("PT" + timeout.replace("s", "S").replace("m", "M")),
+            temperature
         );
     }
 
@@ -119,6 +125,7 @@ public class AgentConfig {
     }
 
     @Bean
+    @Profile("!test")   // Test profile uses ProgrammableEmbeddingStore from TestConfig
     public EmbeddingStore<TextSegment> embeddingStore() {
         return ChromaEmbeddingStore.builder()
             .apiVersion(ChromaApiVersion.V2)

@@ -7,6 +7,7 @@ import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.RestClientException;
@@ -23,6 +24,7 @@ import java.util.Map;
  * LangChain4j embedding interface so the rest of the RAG pipeline works unchanged.
  */
 @Component
+@Profile("!test")   // Test profile uses StubEmbeddingModel from TestConfig
 public class Text2VecEmbeddingModel implements EmbeddingModel {
 
     private static final Logger log = LoggerFactory.getLogger(Text2VecEmbeddingModel.class);
