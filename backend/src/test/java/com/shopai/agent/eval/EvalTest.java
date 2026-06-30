@@ -1,5 +1,6 @@
 package com.shopai.agent.eval;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shopai.agent.config.TestConfig;
 import com.shopai.agent.engine.PlanExecuteEngine;
 import com.shopai.agent.engine.ShopAiAgent;
@@ -7,10 +8,12 @@ import com.shopai.agent.eval.guard.RegressionGuard;
 import com.shopai.agent.eval.judge.LlmJudge;
 import com.shopai.agent.eval.model.EvalReport;
 import com.shopai.agent.eval.runner.AgentAdapter;
+import com.shopai.agent.eval.runner.AgentExecution;
 import com.shopai.agent.eval.runner.EvalRunner;
 import com.shopai.agent.eval.report.ReportWriter;
 import com.shopai.agent.support.LlmTestHelper;
 import com.shopai.agent.support.TestDataFactory;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.service.TokenStream;
@@ -28,6 +31,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -77,6 +83,8 @@ class EvalTest {
     @Value("${shopai.eval.judge.base-url:https://api.openai.com/v1}")
     private String judgeBaseUrl;
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     @BeforeAll
     static void setUpClass() {
         // Ensure report directory exists
@@ -100,7 +108,12 @@ class EvalTest {
 
         AgentAdapter reActAdapter = (sessionId, userMessage) -> {
             TokenStream stream = reActAgent.chat(sessionId, userMessage);
-            return LlmTestHelper.collectStream(stream, Duration.ofSeconds(60));
+            String answer = LlmTestHelper.collectStream(stream, Duration.ofSeconds(60));
+
+            // Extract tool calls from ChatMemoryStore (LangChain4j stores them in AiMessages)
+            List<AgentExecution.ToolCall> toolCalls = extractReActToolCalls(sessionId);
+
+            return AgentExecution.of(answer, toolCalls);
         };
 
         LlmJudge judge = LlmJudge.create(judgeApiKey, judgeModel, judgeBaseUrl, Duration.ofSeconds(30));
@@ -145,13 +158,27 @@ class EvalTest {
         TestDataFactory.seedAll(jdbc);
 
         AgentAdapter peAdapter = (sessionId, userMessage) -> {
-            java.util.concurrent.CompletableFuture<String> future = new java.util.concurrent.CompletableFuture<>();
-            java.util.concurrent.atomic.AtomicReference<String> answer = new java.util.concurrent.atomic.AtomicReference<>("");
+            java.util.concurrent.CompletableFuture<AgentExecution> future =
+                new java.util.concurrent.CompletableFuture<>();
+            java.util.concurrent.atomic.AtomicReference<String> answer =
+                new java.util.concurrent.atomic.AtomicReference<>("");
+            List<AgentExecution.ToolCall> toolCalls = new ArrayList<>();
 
             planExecuteEngine.execute(sessionId, userMessage, event -> {
-                if (event instanceof com.shopai.agent.engine.PlanExecuteEvent.SynthesisDone done) {
+                if (event instanceof com.shopai.agent.engine.PlanExecuteEvent.StepStart stepStart) {
+                    // Capture tool_call steps as they begin execution
+                    if ("tool_call".equals(stepStart.step().type())
+                        && stepStart.step().tool() != null) {
+                        toolCalls.add(new AgentExecution.ToolCall(
+                            stepStart.step().tool(),
+                            stepStart.step().args() != null
+                                ? stepStart.step().args()
+                                : Map.of()
+                        ));
+                    }
+                } else if (event instanceof com.shopai.agent.engine.PlanExecuteEvent.SynthesisDone done) {
                     answer.set(done.content());
-                    future.complete(done.content());
+                    future.complete(AgentExecution.of(done.content(), toolCalls));
                 } else if (event instanceof com.shopai.agent.engine.PlanExecuteEvent.PlanError err) {
                     future.completeExceptionally(new RuntimeException(err.message()));
                 }
@@ -161,7 +188,10 @@ class EvalTest {
                 return future.get(60, java.util.concurrent.TimeUnit.SECONDS);
             } catch (java.util.concurrent.TimeoutException e) {
                 String partial = answer.get();
-                return partial != null && !partial.isEmpty() ? partial : "(timeout)";
+                return AgentExecution.of(
+                    partial != null && !partial.isEmpty() ? partial : "(timeout)",
+                    toolCalls
+                );
             }
         };
 
@@ -182,5 +212,29 @@ class EvalTest {
         assertThat(report.executedCases())
             .as("At least 70% of cases should execute successfully (Plan-Execute is more complex)")
             .isGreaterThanOrEqualTo((int) (report.totalCases() * 0.7));
+    }
+
+    /**
+     * Extracts tool calls from LangChain4j's ChatMemoryStore after a ReAct execution.
+     * ToolExecutionRequest.arguments() returns a JSON string that we parse into a Map.
+     */
+    @SuppressWarnings("unchecked")
+    private List<AgentExecution.ToolCall> extractReActToolCalls(String sessionId) {
+        List<ToolExecutionRequest> requests = LlmTestHelper.extractToolCalls(memoryStore, sessionId);
+        List<AgentExecution.ToolCall> toolCalls = new ArrayList<>();
+        for (ToolExecutionRequest req : requests) {
+            Map<String, Object> args = Map.of();
+            String argsJson = req.arguments();
+            if (argsJson != null && !argsJson.isBlank()) {
+                try {
+                    args = objectMapper.readValue(argsJson, Map.class);
+                } catch (Exception e) {
+                    // If JSON parsing fails, store raw string under "_raw" key
+                    args = Map.of("_raw", argsJson);
+                }
+            }
+            toolCalls.add(new AgentExecution.ToolCall(req.name(), args));
+        }
+        return toolCalls;
     }
 }

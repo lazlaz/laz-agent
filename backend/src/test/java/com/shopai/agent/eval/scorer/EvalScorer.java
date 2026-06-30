@@ -10,6 +10,8 @@ import java.util.stream.Collectors;
 /**
  * Aggregates individual {@link EvalResult} instances into an {@link EvalReport}
  * with per-dimension statistics and per-category breakdowns.
+ * <p>
+ * Covers both LLM-judge dimensions and deterministic (keyword + tool) dimensions.
  */
 public class EvalScorer {
 
@@ -24,13 +26,18 @@ public class EvalScorer {
             .filter(r -> r.judgeVerdict() == null)
             .toList();
 
-        // Per-dimension stats
+        // Per-dimension stats — LLM judge dimensions
         EvalReport.DimensionScores scores = new EvalReport.DimensionScores(
-            computeStats(successful, v -> v.factualAccuracy()),
-            computeStats(successful, v -> v.completeness()),
-            computeStats(successful, v -> v.conciseness()),
-            computeStats(successful, v -> v.hallucination()),
-            computeStats(successful, v -> v.overall())
+            computeStats(successful, r -> (double) r.judgeVerdict().factualAccuracy()),
+            computeStats(successful, r -> (double) r.judgeVerdict().completeness()),
+            computeStats(successful, r -> (double) r.judgeVerdict().conciseness()),
+            computeStats(successful, r -> (double) r.judgeVerdict().hallucination()),
+            computeStats(successful, r -> (double) r.judgeVerdict().overall()),
+            // Deterministic dimensions
+            computeStats(successful, EvalResult::keywordRecall),
+            computeStats(successful, EvalResult::keywordPrecision),
+            computeStats(successful, EvalResult::toolSelectionMatch),
+            computeStats(successful, EvalResult::toolArgMatch)
         );
 
         // Per-category breakdown
@@ -43,11 +50,15 @@ public class EvalScorer {
             breakdown.put(entry.getKey(), new EvalReport.CategoryBreakdown(
                 catResults.size(),
                 new EvalReport.DimensionScores(
-                    computeStats(catResults, v -> v.factualAccuracy()),
-                    computeStats(catResults, v -> v.completeness()),
-                    computeStats(catResults, v -> v.conciseness()),
-                    computeStats(catResults, v -> v.hallucination()),
-                    computeStats(catResults, v -> v.overall())
+                    computeStats(catResults, r -> (double) r.judgeVerdict().factualAccuracy()),
+                    computeStats(catResults, r -> (double) r.judgeVerdict().completeness()),
+                    computeStats(catResults, r -> (double) r.judgeVerdict().conciseness()),
+                    computeStats(catResults, r -> (double) r.judgeVerdict().hallucination()),
+                    computeStats(catResults, r -> (double) r.judgeVerdict().overall()),
+                    computeStats(catResults, EvalResult::keywordRecall),
+                    computeStats(catResults, EvalResult::keywordPrecision),
+                    computeStats(catResults, EvalResult::toolSelectionMatch),
+                    computeStats(catResults, EvalResult::toolArgMatch)
                 )
             ));
         }
@@ -73,7 +84,7 @@ public class EvalScorer {
 
     @FunctionalInterface
     private interface ScoreExtractor {
-        int extract(JudgeVerdict v);
+        double extract(EvalResult r);
     }
 
     private EvalReport.Stats computeStats(List<EvalResult> results, ScoreExtractor extractor) {
@@ -81,15 +92,15 @@ public class EvalScorer {
             return new EvalReport.Stats(0, 0, 0, 0, 0);
         }
 
-        List<Integer> scores = results.stream()
-            .map(r -> extractor.extract(r.judgeVerdict()))
+        List<Double> scores = results.stream()
+            .map(extractor::extract)
             .sorted()
             .toList();
 
-        double mean = scores.stream().mapToInt(Integer::intValue).average().orElse(0);
+        double mean = scores.stream().mapToDouble(Double::doubleValue).average().orElse(0);
         double median = scores.get(scores.size() / 2);
-        int min = scores.get(0);
-        int max = scores.get(scores.size() - 1);
+        int min = (int) Math.floor(scores.get(0));
+        int max = (int) Math.ceil(scores.get(scores.size() - 1));
 
         // P95
         int p95Index = (int) Math.ceil(0.95 * scores.size()) - 1;

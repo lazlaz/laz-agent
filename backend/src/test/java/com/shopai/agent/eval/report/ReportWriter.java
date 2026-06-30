@@ -68,12 +68,19 @@ public class ReportWriter {
             "Dimension", "Mean", "Med", "Min", "Max", "P95");
         System.out.println("-".repeat(45));
 
+        System.out.println("── LLM Judge ──");
         printDim("Factual Accuracy", s.factualAccuracy());
         printDim("Completeness", s.completeness());
         printDim("Conciseness", s.conciseness());
         printDim("Hallucination", s.hallucination());
         System.out.println("-".repeat(45));
         printDim("OVERALL", s.overall());
+
+        System.out.println("── Deterministic ──");
+        printDim("Keyword Recall", s.keywordRecall());
+        printDim("Keyword Precision", s.keywordPrecision());
+        printDim("Tool Selection", s.toolSelection());
+        printDim("Tool Arg Match", s.toolArgMatch());
         System.out.println(border);
 
         // Regression guard

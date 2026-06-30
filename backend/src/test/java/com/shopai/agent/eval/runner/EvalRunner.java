@@ -7,6 +7,7 @@ import com.shopai.agent.eval.model.EvalReport;
 import com.shopai.agent.eval.model.EvalResult;
 import com.shopai.agent.eval.model.JudgeVerdict;
 import com.shopai.agent.eval.report.ReportWriter;
+import com.shopai.agent.eval.scorer.DeterministicScorer;
 import com.shopai.agent.eval.scorer.EvalScorer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,14 +15,14 @@ import org.slf4j.LoggerFactory;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Main evaluation orchestrator.
  * <p>
- * Loads a dataset, runs each case through the agent, judges the answers,
- * aggregates scores, and writes a report.
+ * Loads a dataset, runs each case through the agent, judges the answers
+ * with both LLM-based and deterministic scoring, aggregates scores,
+ * and writes a report.
  */
 public class EvalRunner {
 
@@ -29,6 +30,7 @@ public class EvalRunner {
 
     private final AgentAdapter agentAdapter;
     private final LlmJudge judge;
+    private final DeterministicScorer deterministicScorer;
     private final EvalScorer scorer;
     private final ReportWriter writer;
     private final ObjectMapper mapper;
@@ -36,6 +38,7 @@ public class EvalRunner {
     public EvalRunner(AgentAdapter agentAdapter, LlmJudge judge) {
         this.agentAdapter = agentAdapter;
         this.judge = judge;
+        this.deterministicScorer = new DeterministicScorer();
         this.scorer = new EvalScorer();
         this.writer = new ReportWriter();
         this.mapper = new ObjectMapper();
@@ -84,20 +87,35 @@ public class EvalRunner {
 
             try {
                 long start = System.currentTimeMillis();
-                String agentAnswer = agentAdapter.execute(sessionId, c.userMessage());
+                AgentExecution execution = agentAdapter.execute(sessionId, c.userMessage());
                 long latency = System.currentTimeMillis() - start;
-      
-                // Judge the answer
+                String agentAnswer = execution.answer();
+
+                // ── Deterministic scoring ──────────────────────────
+                double keywordRecall = deterministicScorer.scoreKeywordRecall(
+                    agentAnswer, c.expectedKeywords());
+                double keywordPrecision = deterministicScorer.scoreKeywordPrecision(
+                    agentAnswer, c.forbiddenKeywords());
+                double toolSelectionMatch = deterministicScorer.scoreToolSelection(
+                    execution.toolCalls(), c.expectedTool());
+                double toolArgMatch = deterministicScorer.scoreToolArgs(
+                    execution.toolCalls(), c.expectedTool(), c.expectedArgs());
+
+                // ── LLM judge ─────────────────────────────────────
                 JudgeVerdict verdict = judge.evaluate(
                     c.userMessage(), agentAnswer, c.referenceAnswer());
 
-                results.add(EvalResult.success(c, mode, agentAnswer, verdict, latency));
+                results.add(EvalResult.success(c, mode, agentAnswer, verdict, latency,
+                    keywordRecall, keywordPrecision, toolSelectionMatch, toolArgMatch));
+
                 log.info("  Agent answer: {}", agentAnswer);
                 log.info("  Reference answer: {}", c.referenceAnswer());
-                log.info("  ✓ Scores: factual={}, complete={}, concise={}, halluc={}, overall={} ({}ms)",
+                log.info("  ✓ LLM scores: factual={}, complete={}, concise={}, halluc={}, overall={}",
                     verdict.factualAccuracy(), verdict.completeness(),
                     verdict.conciseness(), verdict.hallucination(),
-                    verdict.overall(), latency);
+                    verdict.overall());
+                log.info("  ✓ Deterministic: kwRecall={:.2f}, kwPrecision={:.2f}, toolSelect={:.2f}, toolArgs={:.2f} ({}ms)",
+                    keywordRecall, keywordPrecision, toolSelectionMatch, toolArgMatch, latency);
 
             } catch (Exception e) {
                 log.error("  ✗ Failed: {}", e.getMessage());

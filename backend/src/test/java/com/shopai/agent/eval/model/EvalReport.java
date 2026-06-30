@@ -22,13 +22,20 @@ public record EvalReport(
     RegressionResult regressionGuard,
     List<FailedCase> failedCaseDetails
 ) {
-    /** Per-dimension statistics. */
+    /** Per-dimension statistics covering both LLM-judge and deterministic scores. */
     public record DimensionScores(
+        // LLM-judge dimensions
         Stats factualAccuracy,
         Stats completeness,
         Stats conciseness,
         Stats hallucination,
-        Stats overall
+        Stats overall,
+
+        // Deterministic dimensions
+        Stats keywordRecall,
+        Stats keywordPrecision,
+        Stats toolSelection,
+        Stats toolArgMatch
     ) {}
 
     /** Statistical summary for a single dimension. */
